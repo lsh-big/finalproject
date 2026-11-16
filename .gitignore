@@ -2,3 +2,5 @@ node_modules/
 .preview-profile/
 .browser-qa/
 *.log
+preview-*.png
+tests/artifacts/
