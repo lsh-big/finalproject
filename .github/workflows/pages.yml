@@ -1,4 +1,4 @@
-name: Validate and deploy GitHub Pages
+﻿name: Validate and deploy Pages demo
 
 on:
   push:
@@ -18,13 +18,11 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
-      - name: Set up Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
         with:
           node-version: '22'
-      - name: Validate data, interactions and Pages asset paths
+      - name: Validate server and demo workflows
         run: npm test
 
   deploy:
@@ -39,14 +37,18 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
-      - name: Check out repository
-        uses: actions/checkout@v6
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Build public demo without backend or private data
+        run: npm run build:pages
       - name: Configure Pages
         uses: actions/configure-pages@v5
-      - name: Upload static website only
+      - name: Upload demo artifact only
         uses: actions/upload-pages-artifact@v4
         with:
-          path: public
-      - name: Deploy to GitHub Pages
+          path: dist/pages
+      - name: Deploy GitHub Pages demo
         id: deployment
         uses: actions/deploy-pages@v4

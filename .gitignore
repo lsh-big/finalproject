@@ -4,3 +4,7 @@ node_modules/
 *.log
 preview-*.png
 tests/artifacts/
+
+.private/
+
+dist/
