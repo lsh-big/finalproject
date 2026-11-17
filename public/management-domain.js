@@ -1,12 +1,13 @@
 ﻿import {modules,initialData,validateRecord} from './management-schema.js';
 import {normalizeOps,applyOps} from './operations-domain.js';
 import {normalizeLedger,applyLedger,ledgerActions,guardLedgerEdit,guardLedgerDelete} from './ledger-domain.js';
-export function normalizeManagement(data){return normalizeLedger(normalizeOps(data));}
+import {freshCadState,applyCadAction} from './cad-engine.js';
+export function normalizeManagement(data){data.cad??=freshCadState();return normalizeLedger(normalizeOps(data));}
 export function freshManagement(){return normalizeManagement(structuredClone(initialData));}
 export function mutateManagement(data,input,user,method){
  if(!user||user.role!=='admin')throw Error('등록·수정·삭제는 관리자만 가능합니다.');
  if(!['POST','PATCH','DELETE'].includes(method))throw Error('지원하지 않는 요청입니다.');
- if(input.action){if(method!=='POST')throw Error('POST 요청이 필요합니다.');if(ledgerActions.includes(input.action))applyLedger(data,input,user);else applyOps(data,input,user);return data;}
+ if(input.action){if(method!=='POST')throw Error('POST 요청이 필요합니다.');if(['cad-config','cad-reset','cad-review'].includes(input.action))applyCadAction(data,input,user);else if(ledgerActions.includes(input.action))applyLedger(data,input,user);else applyOps(data,input,user);return data;}
  const {entity,id}=input;if(!Object.hasOwn(modules,entity))throw Error('업무를 확인하세요.');
  const index=data[entity].findIndex(row=>row.id===id);
  if(method!=='POST'&&index<0)throw Error('이미 삭제된 항목입니다. 새로고침하세요.');

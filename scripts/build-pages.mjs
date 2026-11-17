@@ -2,7 +2,7 @@
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 const root=fileURLToPath(new URL('../',import.meta.url));
-export const pagesFiles=['index.html','login.html','admin.html','legacy.html','management.css','management.js','management-schema.js','management-domain.js','operations.js','operations-model.js','operations-domain.js','ledger.js','ledger-model.js','ledger-domain.js','client.js','runtime-config.js','demo-api.js','auth.js','auth.css','session.js','samil-logo.svg','style.css','easy.css','easy-ui.js','app.js','data.js','ai.css','ai-workspace.js','ai-engine.js'];
+export const pagesFiles=['cad.css','cad-example.js','cad-engine.js','cad-workspace.js','index.html','login.html','admin.html','legacy.html','management.css','management.js','management-schema.js','management-domain.js','operations.js','operations-model.js','operations-domain.js','ledger.js','ledger-model.js','ledger-domain.js','client.js','runtime-config.js','demo-api.js','auth.js','auth.css','session.js','samil-logo.svg','style.css','easy.css','easy-ui.js','app.js','data.js','ai.css','ai-workspace.js','ai-engine.js'];
 export async function buildPages(){
  const dist=path.join(root,'dist'),out=path.join(dist,'pages');
  // Verify fixed workspace targets before replacing generated output on Windows or Linux.

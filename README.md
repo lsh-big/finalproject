@@ -36,6 +36,10 @@ npm.cmd start
 
 계정은 `.private/users.json`, 관리 데이터는 `.private/management.json`에 저장됩니다. 비밀번호는 salt가 있는 scrypt 해시로 저장합니다. `.private/`는 Git과 Pages 배포에서 제외됩니다. 외부 운영으로 전환할 경우 HTTPS, 백업 및 별도 서버가 필요합니다. 현재 서버는 로컬 주소에 바인딩됩니다.
 
+## AutoCAD 도면 검토 도우미
+
+가상 추출 JSON으로 태그 연결, 오류 후보 검사, 부품표 CSV 생성과 검토 이력 저장을 체험할 수 있습니다. DWG 직접 읽기와 AutoCAD 연결은 아직 제공하지 않습니다. [사용법·입력 형식·검증 범위](./CAD_REVIEW.md)
+
 ## 주요 기능
 
 - 통합 대시보드와 고객·건물 관리

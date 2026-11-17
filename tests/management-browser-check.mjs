@@ -10,7 +10,7 @@ async function until(expression){for(let i=0;i<60;i++){if(await evaluate(express
 try{
  await send('Runtime.enable');await until('!!document.querySelector("#login")');
  await evaluate(`document.querySelector('[name=username]').value='admin';document.querySelector('[name=password]').value='1234';document.querySelector('#login').requestSubmit();`);
- await until('document.querySelectorAll("#nav button").length===12');
+ await until('document.querySelectorAll("#nav button").length===13');
  assert.equal(await evaluate('document.querySelectorAll(".kpi").length'),4);
  for(const key of ['customers','products','tickets','inspections','parts','staff','contracts']){
   await evaluate(`document.querySelector('[data-go=${key}]').click()`);
@@ -31,4 +31,3 @@ try{
  shot=await send('Page.captureScreenshot',{format:'png'});await writeFile('tests/artifacts/management-mobile.png',Buffer.from(shot.data,'base64'));
  assert.deepEqual(errors,[]);console.log('Browser QA passed: 8 menus, 7 forms, create/delete, desktop/mobile, no runtime errors.');
 }finally{ws.close();}
-

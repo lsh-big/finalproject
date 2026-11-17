@@ -1,4 +1,5 @@
 ﻿export const extraPages={
+ cad:{title:'AutoCAD 도면 검토 도우미',short:'AutoCAD 도면 검토',icon:'⌑',description:'블록·속성의 오류 후보를 검토하고 부품표를 만드는 읽기 전용 설계 도우미입니다.'},
  field:{title:'MMS 모바일 현장 업무',short:'MMS 현장 업무',icon:'▯',description:'현장 정보 조회부터 점검표와 조치 기록까지 한 번에 처리하세요.'},
  monitor:{title:'실시간 상태 모니터링',short:'실시간 관제',icon:'◉',description:'승강기별 상태와 수신 정보를 확인하고 고장 접수로 연결하세요.'},
  preventive:{title:'고장 분석 및 예방 정비',short:'분석·예방 정비',icon:'⌁',description:'접수 이력과 점검 일정에 근거한 점검 대상을 확인하세요.'},

@@ -1,4 +1,4 @@
-import {apiFetch,IS_DEMO} from './client.js';
+﻿import {apiFetch,IS_DEMO} from './client.js';
 import {renderLedger,bindLedger} from './ledger.js';
 import {monthlyTotals} from './ledger-model.js';
 import {extraPages,renderOperations,bindOperations,pollTelemetry} from './operations.js';
@@ -62,7 +62,7 @@ try{const response=await apiFetch('./api/me',{cache:'no-store'});if(!response.ok
 
 function operationsContext(){return {data,user,today,go,rerender:render,currentPage:()=>page,toast,error:text=>{$('#error').hidden=false;$('#error').textContent=text;},mutate:async input=>{data=await api('POST',input);render();}};}
 
-function operationsLaunch(){return `<section class="quick-section"><h2>현장 업무 및 관제</h2><div class="ops-launch-grid">${Object.entries(extraPages).map(([key,m])=>`<button data-go="${key}"><span>${m.icon}</span><b>${m.short}</b><small>${key==='monitor'?'시뮬레이션 피드':key==='integrations'?'API 미연결 · 수동 반영':key==='field'?'점검표·사진·조치 기록':'기록 기반 점검 알림'}</small><i>→</i></button>`).join('')}</div></section>`;}
+function operationsLaunch(){return `<section class="quick-section"><h2>현장 업무 및 관제</h2><div class="ops-launch-grid">${Object.entries(extraPages).map(([key,m])=>`<button data-go="${key}"><span>${m.icon}</span><b>${m.short}</b><small>${key==='monitor'?'시뮬레이션 피드':key==='integrations'?'API 미연결 · 수동 반영':key==='field'?'점검표·사진·조치 기록':key==='cad'?'가상 도면 · 부품표 검토':'기록 기반 점검 알림'}</small><i>→</i></button>`).join('')}</div></section>`;}
 
 function rowLedgerActions(record){if(user.role!=='admin')return '';if(page==='parts')return `<button data-ledger-action="stock-move" data-record="${esc(record.id)}">구매·사용·교체</button>`;if(page==='contracts')return `<button data-ledger-action="bill-month" data-record="${esc(record.id)}">월 청구</button>${data.ledger.renewals.some(r=>r.previousId===record.id)?'':`<button data-ledger-action="renew-contract" data-record="${esc(record.id)}">갱신</button>`}`;return '';}
 
