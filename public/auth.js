@@ -9,7 +9,28 @@ function message(error){$('#message').textContent=error.message||error;}
 async function logout(){await api('logout','POST',{});location.href='./login.html';}
 $('#logout')?.addEventListener('click',logout);
 $('#login')?.addEventListener('submit',async e=>{e.preventDefault();try{const form=new FormData(e.target);const user=await api('login','POST',Object.fromEntries(form));if(user.canView)location.href='./';else{message('조회 권한이 없습니다. 관리자에게 권한 부여를 요청하세요.');e.target.reset();}}catch(error){message(error);}});
-async function list(){const users=await api('users');$('#users').replaceChildren();for(const user of users){const row=document.createElement('article');const text=document.createElement('span');text.textContent=`${user.username} · ${user.role==='admin'?'관리자':user.canView?'조회 허용':'조회 불가'}`;row.append(text);if(user.role!=='admin'){const button=document.createElement('button');button.textContent=user.canView?'권한 회수':'권한 부여';button.onclick=async()=>{try{await api('users','PATCH',{id:user.id,canView:!user.canView});await list();message('권한이 변경되었습니다. 해당 사용자는 다시 로그인해야 합니다.');}catch(error){message(error);}};row.append(button);}$('#users').append(row);}}
+function permissionButton(user,key,label){
+ const button=document.createElement('button');
+ button.textContent=label+(user[key]?' 회수':' 부여');
+ button.onclick=async()=>{try{
+  await api('users','PATCH',{id:user.id,[key]:!user[key]});
+  await list();message('권한이 변경되었습니다. 해당 사용자는 다시 로그인해야 합니다.');
+ }catch(error){message(error);}};
+ return button;
+}
+async function list(){
+ const users=await api('users');$('#users').replaceChildren();
+ for(const user of users){
+  const row=document.createElement('article'),text=document.createElement('span'),actions=document.createElement('div');
+  text.textContent=`${user.username} · ${user.role==='admin'?'관리자':user.canView?'조회 허용':'조회 불가'}${user.role!=='admin'&&user.canReviewOrders?' · 수주 검토':''}`;
+  row.append(text,actions);
+  if(user.role!=='admin'){
+   actions.append(permissionButton(user,'canView','조회 권한'));
+   if(user.canView)actions.append(permissionButton(user,'canReviewOrders','수주 검토 권한'));
+  }
+  $('#users').append(row);
+ }
+}
 $('#create')?.addEventListener('submit',async e=>{e.preventDefault();const form=new FormData(e.target);try{await api('users','POST',{username:form.get('username'),password:form.get('password'),canView:form.has('canView')});e.target.reset();await list();message('계정이 생성되었습니다.');}catch(error){message(error);}});
 if($('#users'))list().catch(message);
 

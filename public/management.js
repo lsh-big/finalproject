@@ -62,6 +62,11 @@ $('#record-form').onsubmit=async e=>{e.preventDefault();$('#save').disabled=true
 for(const id of ['close-editor','cancel-editor'])$('#'+id).onclick=()=>$('#editor').close();$('#cancel-delete').onclick=()=>$('#confirm').close();$('#accept-delete').onclick=async()=>{try{data=await api('DELETE',{entity:page,id:deleting});$('#confirm').close();offset=0;render();toast('삭제되었습니다.');}catch(error){$('#confirm').close();$('#error').textContent=error.message;$('#error').hidden=false;}};
 $('#refresh').onclick=refresh;$('#logout').onclick=async()=>{if(IS_DEMO){await resetDemo();return;}await apiFetch('./api/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});location.replace('./login.html');};
 window.addEventListener('hashchange',()=>{const key=location.hash.slice(1)||'dashboard';if(key!==page)go(key);});
+if(!IS_DEMO){
+ const ordersLink=document.createElement('a');
+ ordersLink.href='./orders.html';ordersLink.textContent='제어반 수주';
+ $('#identity').before(ordersLink);
+}
 try{const response=await apiFetch('./api/me',{cache:'no-store'});if(!response.ok)throw Error('로그인이 필요합니다.');user=await response.json();if(!user.canView)throw Error('조회 권한이 필요합니다.');$('#identity').textContent=user.username+' · '+(user.role==='admin'?'관리자':'조회 사용자');$('#admin-link').hidden=user.role!=='admin';$('#access-note').textContent=user.role==='admin'?'관리자 모드':'조회 전용';$('#today').textContent=today.replaceAll('-','.');if(IS_DEMO)setupDemoUI();const initial=location.hash.slice(1);if(modules[initial]||extraPages[initial])page=initial;await refresh();if(page==='monitor')pollTelemetry(operationsContext());setInterval(()=>{if(page==='monitor')pollTelemetry(operationsContext());},10000);setInterval(async()=>{try{const r=await apiFetch('./api/me',{cache:'no-store'});if(!r.ok||!(await r.json()).canView){document.body.replaceChildren();location.replace('./login.html');}}catch{document.body.replaceChildren();location.replace('./login.html');}},10000);}catch{location.replace('./login.html');}
 
 function operationsContext(){return {data,user,today,go,rerender:render,currentPage:()=>page,toast,error:text=>{$('#error').hidden=false;$('#error').textContent=text;},mutate:async input=>{data=await api('POST',input);render();}};}
