@@ -108,3 +108,36 @@ main:has(.industry-performance) > .notice { display: none; }
   .industry-company-card .industry-source-link { display: inline-flex; align-items: center; min-height: 36px; }
   .industry-company-card .industry-no-source { display: none; }
 }
+
+/* Approved document lookup */
+.document-workspace { display: grid; gap: 16px; }
+.document-workspace .ops-note { margin: 0; }
+.document-toolbar { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 20px; padding: 20px; }
+#document-search { flex: 1 1 340px; max-width: 620px; }
+#document-search label { display: block; margin-bottom: 8px; font-weight: 600; }
+#document-search > div { display: flex; gap: 8px; }
+#document-search input, .document-link-fields input { width: 100%; min-width: 0; border: 1px solid #cdd8e8; border-radius: 6px; padding: 10px 12px; color: #22334b; background: #fff; }
+#document-search button { flex-shrink: 0; }
+.document-toolbar-actions { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+#document-results { display: grid; gap: 14px; }
+.document-product-body { padding: 0 20px 20px; }
+.document-current { border: 1px solid #dce7fb; border-radius: 8px; padding: 15px; background: #f3f7ff; }
+.document-current h3, .document-history h3 { margin: 0; font-size: 1rem; }
+.document-current h3 strong { display: inline-block; margin-left: 5px; color: #244ac0; overflow-wrap: anywhere; }
+.document-metadata, .document-missing { color: #556780; }
+.document-metadata { margin: 6px 0; }
+.document-change { margin: 8px 0 14px; white-space: pre-wrap; overflow-wrap: anywhere; }
+.document-links { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin: 0; padding: 0; list-style: none; }
+.document-links li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px; padding: 9px 12px; border: 1px solid #dce7f5; border-radius: 6px; background: #fff; }
+.document-links a { color: #244ac0; text-decoration: underline; }
+.document-history, .document-attachment { margin-top: 14px; }
+.document-history summary, .document-attachment summary { cursor: pointer; color: #294977; font-weight: 600; }
+.document-history article { margin-top: 12px; padding-top: 12px; border-top: 1px solid #e5ebf5; }
+#document-approval-dialog { width: min(640px, calc(100% - 30px)); }
+.document-link-fields { display: grid; gap: 10px; }
+.document-link-fields label { display: grid; gap: 6px; }
+.document-attachment-form { margin-top: 10px; max-width: 540px; }
+@media (max-width: 600px) {
+  .document-toolbar, .document-product-body { padding-inline: 14px; }
+  .document-links { grid-template-columns: 1fr; }
+}

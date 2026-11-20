@@ -10,7 +10,7 @@ async function until(expression){for(let i=0;i<60;i++){if(await evaluate(express
 try{
  await send('Runtime.enable');await until('!!document.querySelector("#login")');
  await evaluate(`document.querySelector('[name=username]').value='admin';document.querySelector('[name=password]').value='1234';document.querySelector('#login').requestSubmit();`);
- await until('document.querySelectorAll("#nav button").length===14');
+ await until('document.querySelectorAll("#nav button").length===15');
  assert.equal(await evaluate('document.querySelectorAll(".kpi").length'),4);
  for(const key of ['customers','products','tickets','inspections','parts','staff','contracts']){
   await evaluate(`document.querySelector('[data-go=${key}]').click()`);

@@ -1,4 +1,5 @@
 ﻿export const extraPages={
+ documents:{title:'승인 문서 조회',short:'승인 문서 조회',icon:'▤',description:'수주번호 또는 제조번호로 승인 도면, BOM, 검사성적서와 개정 이력을 찾으세요.'},
  cad:{title:'AutoCAD 도면 검토 도우미',short:'AutoCAD 도면 검토',icon:'⌑',description:'블록·속성의 오류 후보를 검토하고 부품표를 만드는 읽기 전용 설계 도우미입니다.'},
  field:{title:'MMS 모바일 현장 업무',short:'MMS 현장 업무',icon:'▯',description:'현장 정보 조회부터 점검표와 조치 기록까지 한 번에 처리하세요.'},
  monitor:{title:'실시간 상태 모니터링',short:'실시간 관제',icon:'◉',description:'승강기별 상태와 수신 정보를 확인하고 고장 접수로 연결하세요.'},
