@@ -282,6 +282,7 @@ export function createOrders(filename) {
         const entries = orders.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map(order => ({
           id: order.id, number: order.number, name: order.name, customer: order.customer, status: order.status,
           updatedAt: order.updatedAt, documents: order.documents.length, pending: fields.length - Object.keys(order.decisions).length,
+          mine: (order.reviewAssignee ?? order.history.find(entry => entry.action === '문서 등록')?.by) === user.username,
         }));
         return json(200, {orders: entries, canWrite});
       }
@@ -291,7 +292,7 @@ export function createOrders(filename) {
         if (!name || !customer) throw new OrderError('수주명과 고객사를 입력하세요.');
         const id = randomUUID(), updatedAt = now();
         const order = {id, number: `SO-${updatedAt.slice(0, 10).replaceAll('-', '')}-${id.slice(0, 8).toUpperCase()}`,
-          revision: 0, name, customer, status: '검토 중', updatedAt,
+          revision: 0, name, customer, status: '검토 중', updatedAt, reviewAssignee: user.username,
           reviewer: '', confirmedAt: '', decisions: {}, documents: [], history: []};
         const attachments = await extract(uploadFiles(data.files), data.allowAI === true);
         addDocuments(order, attachments, user);

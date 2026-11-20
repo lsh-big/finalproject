@@ -5,8 +5,51 @@ import {extraPages,renderOperations,bindOperations,pollTelemetry} from './operat
 import {modules} from './management-schema.js';
 const $=s=>document.querySelector(s),esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const number=v=>Number(v||0).toLocaleString('ko-KR'),money=v=>number(v)+'원';
-let data,user,page='dashboard',search='',filter='all',offset=0,editing=null,deleting=null;
+let data,user,page='dashboard',search='',filter='all',offset=0,editing=null,deleting=null,orderQueue=null;
 const today=new Intl.DateTimeFormat('sv-SE',{timeZone:'Asia/Seoul'}).format(new Date());
+const navGroups = [
+ ['수주·설계', ['orders', 'documents', 'cad', 'products']],
+ ['현장·AS', ['tickets', 'inspections', 'field', 'monitor', 'preventive']],
+ ['경영·관리', ['customers', 'parts', 'staff', 'contracts', 'performance', 'integrations']],
+];
+const overdue = row => row.status !== '완료' && row.date < today;
+
+function navigation() {
+ const button = (key, model) => `<button type="button" class="${page===key?'active':''}" data-go="${key}" ${page===key?'aria-current="page"':''}>
+  <span class="nav-icon" aria-hidden="true">${model.icon}</span><span>${model.short}</span></button>`;
+ const items = navGroups.map(([name, keys]) => `<div class="work-nav-group" role="group" aria-label="${name}">
+  <div class="work-nav-label" aria-hidden="true">${name}</div>
+  ${keys.map(key => key === 'orders' ? (IS_DEMO ? '' :
+   '<a href="./orders.html" class="work-nav-link"><span class="nav-icon" aria-hidden="true">▤</span>제어반 수주</a>') :
+   button(key, modules[key] || extraPages[key])).join('')}</div>`).join('');
+ return button('dashboard', {short:'통합 대시보드',icon:'◫'}) + items;
+}
+
+function taskPanel() {
+ const canReview = !IS_DEMO && user.canReviewOrders;
+ const count = data.inspections.filter(overdue).length;
+ return `<section class="panel task-panel" aria-labelledby="task-heading">
+  <h2 id="task-heading">처리할 일</h2><div class="task-grid">
+   ${canReview ? `<div class="task-item"><a class="task-link" href="./orders.html#mine">
+    <span>내 수주 검토 대기</span><strong>${orderQueue === null ? '목록 보기' : `${number(orderQueue.length)}건`}</strong></a>
+    ${orderQueue?.length ? `<ul class="task-orders">${orderQueue.slice(0,3).map(order => `<li>
+     <a href="./orders.html#order/${encodeURIComponent(order.id)}"><span>${esc(order.name)}</span><small>미해결 ${number(order.pending)}개</small></a>
+    </li>`).join('')}</ul>` : ''}</div>` : ''}
+   <div class="task-item"><button type="button" class="task-link ${count ? 'task-late' : ''}" data-go="inspections" data-list-filter="기한 경과">
+    <span>기한 경과 점검</span><strong>${number(count)}건</strong></button></div>
+  </div></section>`;
+}
+
+async function loadOrderQueue() {
+ if (IS_DEMO || !user.canReviewOrders) return;
+ orderQueue = null;
+ try {
+  const response = await apiFetch('./api/orders');
+  if (!response.ok) return;
+  const {orders} = await response.json();
+  orderQueue = orders.filter(order => order.mine && order.status === '검토 중');
+ } catch { /* The review list remains available from its dashboard link. */ }
+}
 const link=(key,text)=>`<button class="text-link" data-go="${key}">${text} <span>↗</span></button>`;
 const badge=text=>`<span class="status ${['긴급','운행 중지','미수','부족','기한 경과'].includes(text)?'red':['처리 중','높음','점검 중','배정','예정','현장 출동'].includes(text)?'amber':['완료','정상 운행','수납 완료','유효','근무 중','관리 중'].includes(text)?'green':''}">${esc(text)}</span>`;
 async function api(method='GET',body){const response=await apiFetch('./api/management',{method,cache:'no-store',headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});if(!IS_DEMO&&(response.status===401||response.status===403)){document.body.replaceChildren();location.replace('./login.html');throw Error('권한을 확인하세요.');}const value=await response.json();if(!response.ok)throw Error(value.error);return value;}
@@ -20,12 +63,18 @@ function dashboard(){
  const tasks=[...pending.map(r=>({date:r.date,title:r.type,name:label('products',r.productId),status:r.date<today?'기한 경과':r.status,go:'inspections'})),...open.map(r=>({date:r.date,title:r.symptom,name:label('products',r.productId),status:r.priority,go:'tickets'}))].sort((a,b)=>a.date.localeCompare(b.date)).slice(0,5);
  return `<section class="overview-banner"><div><span class="eyebrow">YOUR DAILY OVERVIEW</span><h2>오늘도 안전한 운행을 위해.</h2><p>현장 현황부터 예정된 업무까지, 필요한 정보를 바로 확인하세요.</p></div><div class="banner-stat"><span>관리 중인 승강기</span><strong>${data.products.length}<small> 대</small></strong><span>${data.customers.length}개 고객·건물 연결</span></div></section>`+cards([['미처리 AS',open.length,'건',`긴급 ${urgent}건 · 접수부터 완료까지`,'blue','tickets'],['예정된 점검',pending.length,'건',`기한 경과 ${pending.filter(r=>r.date<today).length}건`,'purple','inspections'],['재고 부족',low.length,'종','최소 보유 수량 기준','orange','parts'],['월 계약 금액',number(sum/10000),'만원',`현재 유효 계약 ${active.length}건`,'teal','contracts']])+`<div class="dashboard-grid">${panel('고장·AS 처리 현황','처리 중인 접수를 우선 확인하세요.',`<div class="table-wrap"><table><thead><tr><th>현장 / 승강기</th><th>접수 내용</th><th>담당 기사</th><th>상태</th></tr></thead><tbody>${open.slice(0,5).map(r=>{const p=data.products.find(p=>p.id===r.productId);return `<tr><td><b>${esc(p?label('customers',p.customerId):'미연결')}</b><small>${esc(label('products',r.productId))}</small></td><td>${esc(r.symptom)}<small>${esc(r.date)} · ${esc(r.priority)}</small></td><td>${esc(label('staff',r.staffId))}</td><td>${badge(r.status)}</td></tr>`;}).join('')||'<tr><td colspan="4" class="empty">미처리 AS가 없습니다.</td></tr>'}</tbody></table></div>`,link('tickets','전체 보기'))}${panel('다가오는 업무','미완료 업무를 날짜순으로 확인하세요.',`<div class="agenda">${tasks.map(r=>`<button data-go="${r.go}"><span class="agenda-date">${esc(r.date.slice(5).replace('-','.'))}</span><span><b>${esc(r.title)}</b><small>${esc(r.name)}</small></span>${badge(r.status)}</button>`).join('')||'<p class="empty">예정된 업무가 없습니다.</p>'}</div>`,link('inspections','점검 일정'))}</div><div class="dashboard-bottom">${panel('현장 운영 현황','등록된 승강기의 현재 상태',`<div class="operations">${['정상 운행','점검 중','운행 중지'].map((s,i)=>`<div><span class="dot dot-${i}"></span><span>${s}</span><b>${data.products.filter(p=>p.status===s).length}<small> 대</small></b></div>`).join('')}</div>`,link('products','제품 관리'))}${panel('부품 재고 알림','재고 부족 항목을 확인하고 수량을 조정하세요.',`<div class="stock-list">${low.map(r=>`<div><span><b>${esc(r.name)}</b><small>${esc(r.location)}</small></span><span>${number(r.quantity)} / ${number(r.minimum)} ${esc(r.unit)} ${badge('부족')}</span></div>`).join('')||'<p class="empty">부족한 재고가 없습니다.</p>'}</div>`,link('parts','재고 관리'))}${panel('이번 달 계약 수납','이번 달 청구 내역의 누적 수금 현황',`<div class="revenue"><span>수납 완료 금액</span><strong>${money(paid)}</strong><div class="progress"><i style="width:${billed?paid/billed*100:0}%"></i></div><p>미수 금액 <b>${money(billed-paid)}</b></p></div>`,link('contracts','계약 보기'))}</div><section class="quick-section"><h2>업무 바로가기</h2><div class="quick-grid">${Object.entries(modules).map(([key,m])=>`<button data-go="${key}"><span>${m.icon}</span><b>${m.short}</b><small>${data[key].length}건 등록</small><i>→</i></button>`).join('')}</div></section>`;
 }
-function listing(){const m=modules[page];let rows=data[page].filter(row=>m.fields.some(([key,,type])=>String(value(page,row,key,type)).toLowerCase().includes(search.toLowerCase())));if(filter!=='all')rows=rows.filter(r=>page==='parts'?r.quantity<r.minimum:r.status===filter);const total=rows.length;rows=rows.slice(offset,offset+10);
- const status=m.fields.find(([k])=>k==='status');const options=page==='parts'?['재고 부족']:status?.[2]||[];
+function matchesStatus(row) {
+ if (filter === 'all') return true;
+ if (page === 'parts') return row.quantity < row.minimum;
+ if (page === 'inspections' && filter === '기한 경과') return overdue(row);
+ return row.status === filter;
+}
+function listing(){const m=modules[page];let rows=data[page].filter(row=>m.fields.some(([key,,type])=>String(value(page,row,key,type)).toLowerCase().includes(search.toLowerCase())));rows=rows.filter(matchesStatus);const total=rows.length;rows=rows.slice(offset,offset+10);
+ const status=m.fields.find(([k])=>k==='status');const options=page==='parts'?['재고 부족']:[...(status?.[2] || []), ...(page==='inspections' ? ['기한 경과'] : [])];
  return `<div class="module-summary"><span><b>${number(data[page].length)}</b> 전체 등록</span>${page==='staff'?`<span><b>${data.staff.filter(s=>s.status!=='휴무').length}</b> 근무·출동 중</span>`:''}${page==='contracts'?`<span><b>${money(data.contracts.filter(r=>r.status==='유효'&&r.startDate<=today&&r.endDate>=today).reduce((sum,r)=>sum+r.amount,0))}</b> 월 유효 계약 금액</span>`:''}<span class="summary-hint">${user.role==='admin'?(IS_DEMO?'변경 내용은 이 브라우저에만 저장됩니다.':'등록·수정 내용은 모든 조회 사용자에게 공유됩니다.'):'조회 전용 계정입니다.'}</span></div><section class="panel"><div class="list-toolbar"><div class="search-box"><span>⌕</span><input id="search" aria-label="목록 검색" placeholder="${page==='customers'?'고객명, 건물명, 연락처':page==='products'?'제조번호, 수주번호, 모델명':'키워드'} 검색" value="${esc(search)}"></div><select id="status-filter" aria-label="상태 필터"><option value="all">전체 상태</option>${options.map(o=>`<option ${filter===o?'selected':''}>${o}</option>`).join('')}</select><span class="result-count">${number(total)}건 조회</span><button id="csv" class="quiet">↓ 목록 저장</button>${user.role==='admin'?'<button id="add" class="primary">＋ 새로 등록</button>':''}</div><div class="table-wrap"><table><thead><tr>${m.fields.filter(([, ,t])=>t!=='textarea').map(([,title])=>`<th>${title}</th>`).join('')}${page==='staff'?'<th>미완료 배정</th>':''}<th>관리</th></tr></thead><tbody>${rows.map(r=>`<tr>${m.fields.filter(([, ,t])=>t!=='textarea').map(([key,,type],i)=>`<td>${key==='status'||key==='priority'||key==='payment'?badge(r[key]):i===0?`<b>${esc(value(page,r,key,type))}</b>`:esc(value(page,r,key,type))}</td>`).join('')}${page==='staff'?`<td>${data.tickets.filter(t=>t.staffId===r.id&&t.status!=='완료').length} AS / ${data.inspections.filter(t=>t.staffId===r.id&&t.status!=='완료').length} 점검</td>`:''}<td><div class="row-actions">${rowLedgerActions(r)}<button data-edit="${esc(r.id)}">${user.role==='admin'?'수정':'상세'}</button>${user.role==='admin'?`<button data-delete="${esc(r.id)}" class="delete-link">삭제</button>`:''}</div></td></tr>`).join('')||`<tr><td colspan="12" class="empty"><strong>표시할 항목이 없습니다.</strong><p>검색 조건을 바꾸거나 새 기록을 등록하세요.</p></td></tr>`}</tbody></table></div><div class="pagination"><span>전체 ${number(total)}건 · ${total?offset+1:0}–${Math.min(offset+10,total)} 표시</span><div><button id="prev" class="quiet" ${offset===0?'disabled':''}>← 이전</button><span>${Math.floor(offset/10)+1} / ${Math.max(1,Math.ceil(total/10))}</span><button id="next" class="quiet" ${offset+10>=total?'disabled':''}>다음 →</button></div></div></section>${page==='staff'?'<p class="helper">기사 배정은 고장·AS 접수 또는 점검 화면에서 담당 기사를 선택하세요. 미완료 배정 건수가 이 화면에 함께 표시됩니다.</p>':''}${page==='parts'?'<p class="helper">입출고는 구매·사용·교체 등록으로 반영하세요. 취소 시에도 이력이 남고 현재 재고가 함께 갱신됩니다.</p>':''}`;
 }
-function render(){const m=modules[page]||extraPages[page];$('#title').textContent=m?.title||'통합 대시보드';$('#crumb').textContent=m?.title||'통합 대시보드';$('#description').textContent=m?.description||'오늘의 현장과 관리 업무를 한눈에 확인하세요.';$('#nav').innerHTML=[['dashboard',{short:'통합 대시보드',icon:'◫'}],...Object.entries(modules),...Object.entries(extraPages)].map(([key,m],i)=>`<button class="${page===key?'active':''}" data-go="${key}" ${page===key?'aria-current="page"':''}><span class="nav-icon">${m.icon}</span><span>${m.short}</span><small>${String(i+1).padStart(2,'0')}</small></button>`).join('');$('#content').innerHTML=extraPages[page]?renderOperations(page,operationsContext()):page==='dashboard'?dashboard()+operationsLaunch():listing();if(extraPages[page])bindOperations(page,operationsContext());if(page==='parts'||page==='contracts'){document.querySelector('#content').insertAdjacentHTML('beforeend',renderLedger(page,operationsContext()));bindLedger(page,operationsContext());}}
-function go(key){if(key!=='dashboard'&&!modules[key]&&!extraPages[key])return;page=key;search='';filter='all';offset=0;location.hash=key;render();if(key==='monitor')pollTelemetry(operationsContext());}
+function render(){const m=modules[page]||extraPages[page];$('#title').textContent=m?.title||'통합 대시보드';$('#crumb').textContent=m?.title||'통합 대시보드';$('#description').textContent=m?.description||'오늘의 현장과 관리 업무를 한눈에 확인하세요.';$('#nav').innerHTML=navigation();$('#content').innerHTML=extraPages[page]?renderOperations(page,operationsContext()):page==='dashboard'?taskPanel()+dashboard()+operationsLaunch():listing();if(extraPages[page])bindOperations(page,operationsContext());if(page==='parts'||page==='contracts'){document.querySelector('#content').insertAdjacentHTML('beforeend',renderLedger(page,operationsContext()));bindLedger(page,operationsContext());}}
+function go(key,initialFilter='all'){if(key!=='dashboard'&&!modules[key]&&!extraPages[key])return;page=key;search='';filter=initialFilter;offset=0;$('#performance-nav-toggle').setAttribute('aria-expanded','false');location.hash=key;render();if(key==='monitor')pollTelemetry(operationsContext());}
 function edit(id){
  editing=id||null;const m=modules[page],record=data[page].find(r=>r.id===id)||{};
  $('#editor-title').textContent=m.short+' · '+(id?(user.role==='admin'?'수정':'상세'):'새로 등록');
@@ -50,9 +99,9 @@ function edit(id){
 }
 function labelFor(entity,id){return label(entity,id);}
 function toast(text){$('#toast').textContent=text;$('#toast').classList.add('visible');setTimeout(()=>$('#toast').classList.remove('visible'),3000);}
-async function refresh(){try{data=await api();$('#error').hidden=true;render();}catch(e){$('#error').hidden=false;$('#error').textContent=e.message;}}
-function exportCSV(){const m=modules[page];const cell=v=>'"'+String(v??'').replace(/^[=+@\-\t\r]/,"'$&").replaceAll('"','""')+'"';const rows=data[page].filter(r=>(filter==='all'||(page==='parts'?r.quantity<r.minimum:r.status===filter))&&m.fields.some(([key,,type])=>String(value(page,r,key,type)).toLowerCase().includes(search.toLowerCase())));const text=[m.fields.map(([,l])=>cell(l)).join(','),...rows.map(r=>m.fields.map(([key,,type])=>cell(value(page,r,key,type))).join(','))].join('\r\n');const url=URL.createObjectURL(new Blob(['\uFEFF'+text],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=m.short+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
-document.addEventListener('click',e=>{const nav=e.target.closest('[data-go]');if(nav)go(nav.dataset.go);const editButton=e.target.closest('[data-edit]');if(editButton)edit(editButton.dataset.edit);const del=e.target.closest('[data-delete]');if(del){deleting=del.dataset.delete;$('#confirm').showModal();}if(e.target.id==='add')edit();if(e.target.id==='prev'){offset-=10;render();}if(e.target.id==='next'){offset+=10;render();}if(e.target.id==='csv')exportCSV();});
+async function refresh(){try{[data]=await Promise.all([api(),loadOrderQueue()]);$('#error').hidden=true;render();}catch(e){$('#error').hidden=false;$('#error').textContent=e.message;}}
+function exportCSV(){const m=modules[page];const cell=v=>'"'+String(v??'').replace(/^[=+@\-\t\r]/,"'$&").replaceAll('"','""')+'"';const rows=data[page].filter(r=>matchesStatus(r)&&m.fields.some(([key,,type])=>String(value(page,r,key,type)).toLowerCase().includes(search.toLowerCase())));const text=[m.fields.map(([,l])=>cell(l)).join(','),...rows.map(r=>m.fields.map(([key,,type])=>cell(value(page,r,key,type))).join(','))].join('\r\n');const url=URL.createObjectURL(new Blob(['\uFEFF'+text],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=m.short+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+document.addEventListener('click',e=>{const nav=e.target.closest('[data-go]');if(nav)go(nav.dataset.go,nav.dataset.listFilter);const editButton=e.target.closest('[data-edit]');if(editButton)edit(editButton.dataset.edit);const del=e.target.closest('[data-delete]');if(del){deleting=del.dataset.delete;$('#confirm').showModal();}if(e.target.id==='add')edit();if(e.target.id==='prev'){offset-=10;render();}if(e.target.id==='next'){offset+=10;render();}if(e.target.id==='csv')exportCSV();});
 $('#performance-nav-toggle').onclick=event=>{
  const button=event.currentTarget;
  button.setAttribute('aria-expanded',String(button.getAttribute('aria-expanded')==='false'));
@@ -62,11 +111,6 @@ $('#record-form').onsubmit=async e=>{e.preventDefault();$('#save').disabled=true
 for(const id of ['close-editor','cancel-editor'])$('#'+id).onclick=()=>$('#editor').close();$('#cancel-delete').onclick=()=>$('#confirm').close();$('#accept-delete').onclick=async()=>{try{data=await api('DELETE',{entity:page,id:deleting});$('#confirm').close();offset=0;render();toast('삭제되었습니다.');}catch(error){$('#confirm').close();$('#error').textContent=error.message;$('#error').hidden=false;}};
 $('#refresh').onclick=refresh;$('#logout').onclick=async()=>{if(IS_DEMO){await resetDemo();return;}await apiFetch('./api/logout',{method:'POST',headers:{'Content-Type':'application/json'},body:'{}'});location.replace('./login.html');};
 window.addEventListener('hashchange',()=>{const key=location.hash.slice(1)||'dashboard';if(key!==page)go(key);});
-if(!IS_DEMO){
- const ordersLink=document.createElement('a');
- ordersLink.href='./orders.html';ordersLink.textContent='제어반 수주';
- $('#identity').before(ordersLink);
-}
 try{const response=await apiFetch('./api/me',{cache:'no-store'});if(!response.ok)throw Error('로그인이 필요합니다.');user=await response.json();if(!user.canView)throw Error('조회 권한이 필요합니다.');$('#identity').textContent=user.username+' · '+(user.role==='admin'?'관리자':'조회 사용자');$('#admin-link').hidden=user.role!=='admin';$('#access-note').textContent=user.role==='admin'?'관리자 모드':'조회 전용';$('#today').textContent=today.replaceAll('-','.');if(IS_DEMO)setupDemoUI();const initial=location.hash.slice(1);if(modules[initial]||extraPages[initial])page=initial;await refresh();if(page==='monitor')pollTelemetry(operationsContext());setInterval(()=>{if(page==='monitor')pollTelemetry(operationsContext());},10000);setInterval(async()=>{try{const r=await apiFetch('./api/me',{cache:'no-store'});if(!r.ok||!(await r.json()).canView){document.body.replaceChildren();location.replace('./login.html');}}catch{document.body.replaceChildren();location.replace('./login.html');}},10000);}catch{location.replace('./login.html');}
 
 function operationsContext(){return {data,user,today,go,rerender:render,currentPage:()=>page,toast,error:text=>{$('#error').hidden=false;$('#error').textContent=text;},mutate:async input=>{data=await api('POST',input);render();}};}

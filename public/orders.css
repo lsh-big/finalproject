@@ -7,6 +7,7 @@
 }
 .orders-app .sidebar nav a span { font-size: 20px; line-height: 1; }
 .orders-app .sidebar nav a:hover, .orders-app .sidebar nav a[aria-current] { background: #eef0fa; color: var(--blue); }
+.orders-app .sidebar nav .order-dashboard-link { display: none; }
 .orders-app .sidebar-foot { margin-top: auto; }
 .orders-app .page-top { margin-bottom: 22px; }
 .orders-app .page-top p, .order-muted { color: var(--order-muted); }
@@ -71,13 +72,17 @@
 .order-doc .order-meta, .order-meta { color: var(--order-muted); font-size: 13px; margin: 5px 0 8px; }
 .order-doc ul { padding-left: 16px; margin: 8px 0 0; color: #845314; font-size: 13px; }
 .order-doc li { margin-bottom: 5px; }
-.order-review { min-width: 820px; table-layout: fixed; }
-.order-review th:first-child { width: 126px; }
-.order-review th:nth-last-child(2) { width: 112px; }
-.order-review th:last-child { width: 252px; }
-.order-review td { vertical-align: top; padding: 12px; }
+.order-review-layout { display: grid; grid-template-columns: minmax(0, 1fr); align-items: start; gap: 14px; }
+.order-review { table-layout: fixed; white-space: normal; }
+.order-review thead th:first-child { width: 126px; }
+.order-review thead th:nth-last-child(2) { width: 112px; }
+.order-review thead th:last-child { width: 252px; }
+.order-review td, .order-review tbody th { vertical-align: top; padding: 12px; }
 .order-review th { padding-inline: 12px; }
+.order-review tbody th { background: transparent; border: 0; border-bottom: 1px solid #f1f4f8; color: #354e71; }
+.order-review tbody tr:last-child th { border-bottom: 0; }
 .order-review .order-unit { display: block; margin-top: 4px; font-size: 12px; color: var(--order-muted); }
+.order-mobile-label { display: none; }
 .order-candidates { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 145px), 1fr)); gap: 8px; }
 .order-candidate { background: #f7f9fe; border: 1px solid #e7edf8; padding: 8px; border-radius: 6px; min-width: 0; }
 .order-candidate p { margin: 0 0 5px; font-size: 12px; color: var(--order-muted); }
@@ -94,16 +99,58 @@
 .order-demo-preview { margin-top: 16px; }
 .order-demo-preview img { display: block; width: min(100%, 560px); border: 1px solid var(--order-line); border-radius: 6px; }
 #order-source { width: min(780px, calc(100% - 28px)); }
-#order-source-content pre { padding: 12px; border-radius: 7px; background: #f3f6fc; white-space: pre-wrap; overflow-wrap: anywhere; }
-#order-source-content img { width: 100%; border: 1px solid var(--order-line); margin-top: 14px; display: block; }
+#order-source-content pre, .order-source-body pre {
+  padding: 12px; border-radius: 7px; background: #f3f6fc; white-space: pre-wrap; overflow-wrap: anywhere;
+}
+#order-source-content img, .order-source-body img { width: 100%; border: 1px solid var(--order-line); margin-top: 14px; display: block; }
+.order-source-panel { position: sticky; top: 16px; max-height: calc(100dvh - 32px); overflow: auto; }
+.order-source-head {
+  position: sticky; top: 0; display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  background: #fff; border-bottom: 1px solid var(--order-line); padding: 12px 14px;
+}
+.order-source-head h2 { font-size: 16px; }
+.order-source-body { padding: 12px 14px 14px; overflow-wrap: anywhere; }
+.order-source-body p { margin: 0; }
+.orders-app [data-source][aria-expanded="true"] { font-weight: 700; }
+@media (min-width: 1150px) {
+  .order-review-layout:has(.order-source-panel:not([hidden])) { grid-template-columns: minmax(0, 1fr) clamp(255px, 25%, 340px); }
+  .order-review-layout:has(.order-source-panel:not([hidden])) .order-review thead th:first-child { width: 94px; }
+  .order-review-layout:has(.order-source-panel:not([hidden])) .order-review thead th:nth-last-child(2) { width: 82px; }
+  .order-review-layout:has(.order-source-panel:not([hidden])) .order-review thead th:last-child { width: clamp(148px, 25%, 190px); }
+  .order-review-layout:has(.order-source-panel:not([hidden])) .order-review :is(th, td) { padding-inline: 8px; }
+  .order-review-layout:has(.order-source-panel:not([hidden])) .order-candidates {
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 105px), 1fr)); gap: 5px;
+  }
+}
+@media (max-width: 1060px) {
+  .order-review-wrap { overflow: visible; padding: 0 14px 12px; }
+  .order-review, .order-review tbody { display: block; }
+  .order-review thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+  .order-review tr {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px;
+    margin-bottom: 10px; border: 1px solid var(--order-line); border-radius: 9px; padding: 12px;
+  }
+  .order-review tr:last-child { margin-bottom: 0; }
+  .order-review td, .order-review tbody th { display: block; max-width: none; padding: 0; border: 0; min-width: 0; }
+  .order-review .order-field-name { grid-column: 1; grid-row: 1; display: flex; align-items: baseline; gap: 6px; color: #293e61; font-size: 15px; }
+  .order-review .order-field-status { grid-column: 2; grid-row: 1; text-align: right; }
+  .order-review .order-field-candidates, .order-review .order-field-value { grid-column: 1 / -1; }
+  .order-review .order-field-value { border-top: 1px solid var(--order-line); padding-top: 9px; }
+  .order-mobile-label { display: block; font-weight: 650; color: #293e61; margin-bottom: 5px; }
+  .order-candidate button { min-height: 30px; }
+}
 @media (max-width: 950px) {
   .order-summary { grid-template-columns: repeat(3, 1fr); }
   .order-summary > div { grid-column: 1 / -1; }
   .order-demos { grid-template-columns: 1fr; }
 }
 @media (max-width: 600px) {
-  .orders-app .sidebar nav { display: flex; }
+  .orders-app .sidebar nav { display: flex; flex-wrap: wrap; }
+  .orders-app .sidebar nav a { min-height: 44px; gap: 6px; padding: 9px; }
+  .orders-app .sidebar nav .order-dashboard-link { display: flex; }
   .orders-app .page-top { flex-wrap: wrap; }
+  #order-screen:has(.order-review-layout) > .page-top .order-actions a[href="#list"] { display: none; }
+  #order-screen:has(.order-review-layout) > .order-summary { padding: 14px 15px; gap: 9px; }
   .order-summary { padding: 18px; gap: 12px; }
   .order-summary article { padding-left: 8px; }
   .order-summary article b { font-size: 23px; }

@@ -17,10 +17,14 @@ const badge = status => `<span class="order-badge ${statuses[status] ?? ''}">${e
 const time = value => value ? `${value.slice(0, 10)} ${value.slice(11, 19)} KST` : '—';
 const locationLabel = item => item.page ? `${item.page}쪽` : `${item.sheet}!${item.cell}`;
 const idPath = order => `/${order.id}`;
+const desktopSource = matchMedia('(min-width: 1150px)');
+const sourceDialog = $('#order-source');
 let user;
 let filter = 'all';
 let renderVersion = 0;
 let toastTimer;
+let sourceKey = '';
+let updateSourceView = null;
 
 async function request(path = '', body) {
   const response = await apiFetch(apiRoot + path, body ? {
@@ -56,21 +60,27 @@ function summary(title, text, stats) {
 }
 
 function table(headers, rows, styling = '', id = '') {
-  return `<div class="table-wrap" tabindex="0" aria-label="${esc(styling === 'order-review' ? '문서별 사양 비교표' : headers[0])}">
-    <table class="${styling}"><thead><tr>${headers.map(label => `<th scope="col">${label}</th>`).join('')}</tr></thead>
-    <tbody ${id ? `id="${id}"` : ''}>${rows}</tbody></table></div>`;
+  const review = styling === 'order-review';
+  return `<div class="table-wrap ${review ? 'order-review-wrap' : ''}" tabindex="0" aria-label="${esc(review ? '문서별 사양 비교표' : headers[0])}">
+    <table class="${styling}" ${review ? 'role="table"' : ''}><thead ${review ? 'role="rowgroup"' : ''}>
+    <tr ${review ? 'role="row"' : ''}>${headers.map(label => `<th scope="col" ${review ? 'role="columnheader"' : ''}>${label}</th>`).join('')}</tr></thead>
+    <tbody ${review ? 'role="rowgroup"' : ''} ${id ? `id="${id}"` : ''}>${rows}</tbody></table></div>`;
 }
 
-function renderList(orders) {
-  const pending = orders.filter(order => order.status === '검토 중').length;
-  screen.innerHTML = heading('수주 목록', '승강기 제어반 발주서와 기술 사양서를 검토하고 수주 사양표를 내려받습니다.',
-    user.canReviewOrders ? '<a class="primary" href="#new">새 수주 등록</a>' : '') +
-    summary('제어반 수주 현황', '진행 중인 검토와 확정된 수주를 확인하세요.',
-      [['전체 수주', orders.length], ['검토 중', pending], ['확정', orders.length - pending]]) +
+function renderList(orders, mine) {
+  const totalPending = orders.filter(order => order.status === '검토 중').length;
+  const records = mine ? orders.filter(order => order.mine && order.status === '검토 중') : orders;
+  const scopeLink = mine ? '<a class="quiet" href="#list">전체 수주 보기</a>' :
+    '<a class="quiet" href="#mine">내 검토 대기</a>';
+  screen.innerHTML = heading(mine ? '내 수주 검토 대기' : '수주 목록',
+    mine ? '내가 담당하는 검토 중 수주를 확인합니다.' : '승강기 제어반 발주서와 기술 사양서를 검토하고 수주 사양표를 내려받습니다.',
+    user.canReviewOrders ? scopeLink + '<a class="primary" href="#new">새 수주 등록</a>' : '') +
+    (mine ? '' : summary('제어반 수주 현황', '진행 중인 검토와 확정된 수주를 확인하세요.',
+      [['전체 수주', orders.length], ['검토 중', totalPending], ['확정', orders.length - totalPending]])) +
     `<section class="panel">
       <div class="order-list-tools">
         <input type="search" id="order-search" aria-label="수주 검색" placeholder="수주명, 고객사, 수주번호 검색">
-        <select id="order-status" aria-label="진행 상태 필터"><option value="">전체 상태</option><option>검토 중</option><option>확정</option></select>
+        <select id="order-status" aria-label="진행 상태 필터" ${mine ? 'hidden' : ''}><option value="">전체 상태</option><option>검토 중</option><option>확정</option></select>
       </div>
       ${table(['수주번호', '수주명', '고객사', '문서', '미해결', '진행 상태', '최근 변경'], '', 'order-list', 'order-list-rows')}
       <p id="order-list-empty" class="order-empty" hidden></p>
@@ -78,15 +88,15 @@ function renderList(orders) {
   function showRows() {
     const query = $('#order-search').value.trim().toLowerCase();
     const status = $('#order-status').value;
-    const visible = orders.filter(order => (!status || status === order.status) &&
+    const visible = records.filter(order => (!status || status === order.status) &&
       [order.name, order.customer, order.number].some(value => value.toLowerCase().includes(query)));
     $('#order-list-rows').innerHTML = visible.map(order => `<tr>
       <td>${esc(order.number)}</td><td><a href="#order/${order.id}">${esc(order.name)}</a></td>
       <td>${esc(order.customer)}</td><td>${order.documents}개</td><td>${order.pending}개</td>
       <td>${badge(order.status)}</td><td>${time(order.updatedAt)}</td></tr>`).join('');
     $('#order-list-empty').hidden = visible.length > 0;
-    $('#order-list-empty').textContent = orders.length ? '검색 조건에 맞는 수주가 없습니다.' :
-      '등록된 수주가 없습니다. 새 수주 등록에서 시연용 문서를 불러올 수 있습니다.';
+    $('#order-list-empty').textContent = records.length ? '검색 조건에 맞는 수주가 없습니다.' :
+      mine ? '검토를 기다리는 내 수주가 없습니다.' : '등록된 수주가 없습니다. 새 수주 등록에서 시연용 문서를 불러올 수 있습니다.';
   }
   $('#order-search').oninput = showRows;
   $('#order-status').onchange = showRows;
@@ -269,10 +279,11 @@ function renderOrder(order) {
       <p>${esc(doc.name)}</p>${group.get(doc.id).map(item => `<button class="order-link" type="button" data-source="${item.id}"
           title="${esc(item.source)}">${esc(item.value)} · ${esc(locationLabel(item))}</button>
           ${item.needsReview ? '<small>근거 확인 필요</small>' : ''}`).join('')}</div>`).join('');
-    return `<tr data-field="${row.key}">
-      <td><strong>${esc(row.label)}</strong>${row.unit ? `<small class="order-unit">${esc(row.unit)}</small>` : ''}</td>
-      <td>${cells ? `<div class="order-candidates">${cells}</div>` : '<span class="order-meta">추출 후보 없음</span>'}</td>
-      <td>${badge(row.status)}</td><td>${reviewCell(row, writable)}</td></tr>`;
+    return `<tr role="row" data-field="${row.key}">
+      <th scope="row" class="order-field-name" role="rowheader"><strong>${esc(row.label)}</strong>${row.unit ? `<small class="order-unit">${esc(row.unit)}</small>` : ''}</th>
+      <td role="cell" class="order-field-candidates">${cells ? `<div class="order-candidates">${cells}</div>` : '<span class="order-meta">추출 후보 없음</span>'}</td>
+      <td role="cell" class="order-field-status">${badge(row.status)}</td><td role="cell" class="order-field-value">
+        <span class="order-mobile-label" aria-hidden="true">확정값</span>${reviewCell(row, writable)}</td></tr>`;
   }).join('');
   screen.innerHTML = heading(order.name, `${order.number} · ${order.customer}`,
     `${badge(order.status)}<a class="quiet" href="#list">수주 목록</a><a class="primary" href="${apiRoot}${idPath(order)}/export" id="order-export">${exportName}</a>`) +
@@ -282,12 +293,13 @@ function renderOrder(order) {
     `<details class="panel order-card order-details" ${warningCount ? 'open' : ''}>
       <summary>등록 문서 및 추출 방식 · ${order.documents.length}개</summary><div class="order-doc-grid">${docs}</div>
     </details>
-    <section class="panel">
+    <div class="order-review-layout"><section class="panel order-review-card">
       <form id="review-form">
         <div class="order-table-title">
           <h2>항목별 사양 비교</h2>
           <div class="order-actions"><select id="review-filter" aria-label="사양 상태 필터">
-            <option value="all">전체 항목</option><option value="issues">누락·불일치·확인 필요</option>
+            <option value="all">전체 항목</option><option value="pending">미해결만 보기</option>
+            <option value="issues">누락·불일치·확인 필요</option>
             <option value="불일치">불일치</option><option value="누락">누락</option><option value="확인 필요">확인 필요</option>
           </select>${writable ? '<button type="button" class="quiet" id="order-accept-matches">일치 항목 반영</button>' : ''}</div>
         </div>
@@ -302,6 +314,11 @@ function renderOrder(order) {
         </div>` : ''}
       </form>
     </section>
+    <aside id="order-source-panel" class="panel order-source-panel" aria-labelledby="order-source-panel-title" hidden>
+      <div class="order-source-head"><h2 id="order-source-panel-title">원문 근거</h2>
+        <button class="quiet" type="button" id="order-source-dismiss" aria-label="원문 패널 닫기">닫기</button></div>
+      <div class="order-source-body" id="order-source-panel-content"></div>
+    </aside></div>
     ${writable ? `<details class="panel order-card order-details order-upload">
       <summary>문서 추가 등록</summary><p class="order-muted">문서를 추가하면 기존 검토값을 이력에 남기고 전체 항목을 다시 검토합니다.</p>
       <form id="order-upload-form">${uploadFields()}<button class="primary" type="submit">추가 문서 등록 및 추출</button></form>
@@ -312,17 +329,65 @@ function renderOrder(order) {
           <td>${esc(entry.action)}</td><td>${esc(entry.label)}</td><td>${esc(entry.before)}</td><td>${esc(entry.value)}</td>
           <td>${esc([entry.source, entry.reason].filter(Boolean).join(' · '))}</td></tr>`).join(''))}</details>`;
   $('#order-export').onclick = event => downloadExport(event);
-  screen.onclick = event => {
-    const item = sources.get(event.target.closest('[data-source]')?.dataset.source);
-    if (!item) return;
-    const url = docUrl(order.documents.find(document => document.id === item.document));
-    $('#order-source-content').innerHTML = `<p><b>${esc(item.source)}</b></p>
-      <pre>${esc(item.text)}</pre><a class="order-button quiet" href="${url}">원본 파일 다운로드</a>
-      ${item.page ? `<img src="${url}/${item.page}" alt="원본 PDF ${item.page}쪽 미리보기">` : ''}`;
-    $('#order-source').showModal();
-  };
+  bindSources(sources, docUrl, order.documents);
   bindReview(order, writable);
   if (writable) bindUpload($('#order-upload-form'), order);
+}
+
+function bindSources(sources, docUrl, documents) {
+  const panel = $('#order-source-panel');
+  const closeButton = $('#order-source-dismiss');
+  const buttons = [...screen.querySelectorAll('[data-source]')];
+  function closeSource() {
+    const trigger = buttons.find(button => button.dataset.source === sourceKey);
+    sourceKey = '';
+    updateSourceView();
+    trigger?.focus({preventScroll: true});
+  }
+  updateSourceView = (focus = false) => {
+    const desktop = desktopSource.matches;
+    const item = sources.get(sourceKey);
+    for (const button of buttons) {
+      button.setAttribute('aria-controls', desktop ? panel.id : sourceDialog.id);
+      button.setAttribute('aria-expanded', String(Boolean(item) && button.dataset.source === sourceKey));
+    }
+    panel.hidden = !item || !desktop;
+    if (sourceDialog.open && (desktop || !item)) sourceDialog.close();
+    if (!item) return;
+    const url = docUrl(documents.find(document => document.id === item.document));
+    const target = desktop ? $('#order-source-panel-content') : $('#order-source-content');
+    const imageUrl = item.page ? `${url}/${item.page}` : '';
+    target.innerHTML = `<p><b>${esc(item.source)}</b></p><pre>${esc(item.text)}</pre>
+      <div class="order-actions"><a class="order-button quiet" href="${url}">원본 파일 다운로드</a>
+      ${imageUrl ? `<a class="order-link" href="${imageUrl}" target="_blank" rel="noopener">PDF 페이지 크게 보기</a>` : ''}</div>
+      ${imageUrl ? `<img src="${imageUrl}" alt="원본 PDF ${item.page}쪽 미리보기">` : ''}`;
+    if (!desktop && !sourceDialog.open) sourceDialog.showModal();
+    if (desktop && focus) {
+      panel.scrollTop = 0;
+      if (panel.getBoundingClientRect().top > innerHeight - 100) panel.scrollIntoView({block: 'nearest'});
+      closeButton.focus({preventScroll: true});
+    }
+  };
+  closeButton.onclick = closeSource;
+  sourceDialog.onclose = () => {
+    if (!desktopSource.matches && !sourceDialog.open && sourceKey) closeSource();
+  };
+  screen.onclick = event => {
+    const key = event.target.closest('[data-source]')?.dataset.source;
+    if (!key) return;
+    if (sourceKey === key) closeSource();
+    else {
+      sourceKey = key;
+      updateSourceView(true);
+    }
+  };
+  panel.onkeydown = event => {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeSource();
+    }
+  };
+  updateSourceView();
 }
 
 async function downloadExport(event) {
@@ -358,11 +423,13 @@ function bindReview(order, writable) {
     filter = select.value;
     let shown = 0;
     for (const row of order.rows) {
-      const visible = filter === 'all' || (filter === 'issues' ? issue(row) : row.status === filter);
+      const visible = filter === 'all' || (filter === 'pending' && !row.decision) ||
+        (filter === 'issues' && issue(row)) || row.status === filter;
       rows.get(row.key).hidden = !visible;
       if (visible) shown++;
     }
     $('#review-empty').hidden = shown > 0;
+    $('#review-empty').textContent = filter === 'pending' ? '미해결 항목이 없습니다.' : '선택한 상태에 해당하는 항목이 없습니다.';
   };
   select.onchange = applyFilter;
   applyFilter();
@@ -441,6 +508,9 @@ async function render() {
     else link.removeAttribute('aria-current');
   }
   errorMessage();
+  sourceKey = '';
+  updateSourceView = null;
+  if (sourceDialog.open) sourceDialog.close();
   screen.onclick = null;
   screen.innerHTML = '<p>수주 업무를 불러오는 중입니다.</p>';
   filter = 'all';
@@ -451,7 +521,7 @@ async function render() {
       if (revision === renderVersion) renderOrder(order);
     } else {
       const {orders} = await request();
-      if (revision === renderVersion) renderList(orders);
+      if (revision === renderVersion) renderList(orders, route === 'mine' && user.canReviewOrders);
     }
   } catch (error) {
     if (revision === renderVersion) {
@@ -460,6 +530,8 @@ async function render() {
     }
   }
 }
+
+desktopSource.addEventListener('change', () => updateSourceView?.(Boolean(sourceKey)));
 
 $('#orders-logout').onclick = async () => {
   await apiFetch('./api/logout', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
