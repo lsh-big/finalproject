@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {compare, groundedCandidates, localCandidates, normalize} from '../order-spec.mjs';
+import {compare, groundedCandidates, localCandidates, normalize} from '../public/order-spec.js';
 
 test('order comparison uses exact units and valid dates with independent floor fields', () => {
   for (const [key, left, right] of [

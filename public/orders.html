@@ -16,7 +16,7 @@
     <div class="workspace">업무 공간 <span>제어반 수주</span></div>
     <nav aria-label="수주 업무 메뉴">
       <a href="#list" data-page="list"><span aria-hidden="true">▤</span> 수주 목록</a>
-      <a href="#new" data-page="new" hidden><span aria-hidden="true">＋</span> 새 수주 등록</a>
+      <a href="#new" data-page="new" hidden><span aria-hidden="true">＋</span><span id="order-new-label">새 수주 등록</span></a>
       <a href="./" class="order-dashboard-link"><span aria-hidden="true">◫</span> 대시보드</a>
     </nav>
     <div class="sidebar-foot"><a href="./">통합 대시보드</a></div>
@@ -26,6 +26,7 @@
       <div><span id="identity"></span><button class="quiet" id="orders-logout">로그아웃</button></div>
     </header>
     <main>
+      <div id="order-demo-notice" class="notice" hidden><span>공개 시연</span> 제공된 가상 문서만 사용하며 검토 내용은 이 브라우저에 저장됩니다.</div>
       <p id="order-error" class="order-error" role="alert" hidden></p>
       <div id="order-screen"><p>수주 업무를 불러오는 중입니다.</p></div>
       <footer>SAMIL ELTEC <span>승강기 제어반 수주 관리</span></footer>

@@ -16,6 +16,16 @@ export const fields = [
   ['options', '고객 요청 옵션', '', ['요청 옵션', '고객 옵션', 'Customer Options']],
 ].map(([key, label, unit, aliases]) => ({key, label, unit, aliases: [label, ...aliases]}));
 
+export class OrderError extends Error {
+  constructor(message, status = 400) {
+    super(message);
+    this.status = status;
+  }
+}
+
+export const nowKst = () => new Date(Date.now() + 9 * 3600000).toISOString().replace('Z', '+09:00');
+export const required = (value, max) => typeof value === 'string' && value.trim().length <= max ? value.trim() : '';
+
 const clean = value => String(value ?? '').normalize('NFKC').trim().toLowerCase();
 const labelKey = value => clean(value).replace(/\s+/g, ' ').replace(/\s*\(\s*(.*?)\s*\)/g, '($1)');
 const aliases = new Map(fields.flatMap(field => field.aliases.map(label => [labelKey(label), field])));
@@ -151,4 +161,61 @@ export function compare(order) {
     else if (new Set(candidates.map(item => item.document)).size === 1) status = '단일 출처';
     return {key, label, unit, candidates, status, decision: order.decisions[key] ?? null};
   });
+}
+
+export function presentOrder(order) {
+  return {...order, documents: order.documents.map(({candidates, ...document}) => document), rows: compare(order)};
+}
+
+export function orderSummary(order, username) {
+  return {
+    id: order.id, number: order.number, name: order.name, customer: order.customer, status: order.status,
+    updatedAt: order.updatedAt, documents: order.documents.length, pending: fields.length - Object.keys(order.decisions).length,
+    mine: (order.reviewAssignee ?? order.history.find(entry => entry.action === '문서 등록')?.by) === username,
+  };
+}
+
+export function reviewOrder(order, data, username, at = nowKst()) {
+  let changed = false;
+  for (const row of compare(order)) {
+    const input = data.decisions?.[row.key];
+    if (!input) continue;
+    let decision = null;
+    if (!input.clear) {
+      const selected = row.candidates.find(item => item.id === input.candidate);
+      const value = selected?.value ?? required(input.value, 1000);
+      const reason = required(input.reason, 1000);
+      if (input.candidate && !selected) throw new OrderError(`${row.label}의 출처를 다시 선택하세요.`);
+      if (normalize(row.key, value) === null) {
+        throw new OrderError(`${row.label}의 값${row.unit ? `과 단위(${row.unit})` : ''}을 확인하세요.`);
+      }
+      if ((!selected || selected.needsReview) && !reason) {
+        throw new OrderError(`${row.label}의 직접 입력 또는 확인 사유를 남겨 주세요.`);
+      }
+      decision = {value, reason, source: selected?.source ?? '직접 입력', candidate: selected?.id ?? ''};
+    }
+    if (JSON.stringify(row.decision) === JSON.stringify(decision)) continue;
+    if (decision) order.decisions[row.key] = decision;
+    else delete order.decisions[row.key];
+    changed = true;
+    order.history.push({at, by: username, action: decision ? '검토값 저장' : '검토값 취소', label: row.label,
+      before: row.decision?.value, value: decision?.value, source: decision?.source, reason: decision?.reason});
+  }
+  if (data.finalize === true) {
+    if (data.confirmed !== true || compare(order).some(row => !row.decision) ||
+        (order.documents.some(document => document.warnings.length) && data.readWarnings !== true)) {
+      throw new OrderError('모든 검토값과 확인 필요 문서를 검토하고 담당자 확인란을 선택하세요.');
+    }
+    order.status = '확정';
+    order.confirmedAt = at;
+    order.history.push({at, by: username, action: '수주 확정', value: order.number,
+      reason: data.readWarnings === true ? '확인 필요 문서 포함 원문 및 전체 검토값 확인' : '원문 및 전체 검토값 확인'});
+    changed = true;
+  }
+  if (changed) {
+    order.reviewer = username;
+    order.updatedAt = at;
+    order.revision++;
+  }
+  return changed;
 }

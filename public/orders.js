@@ -1,16 +1,11 @@
-import {apiFetch} from './client.js';
+import {apiFetch, IS_DEMO} from './client.js';
+import {demoScenarios as demos, orderKinds as kinds, sampleAsset, sampleName} from './order-demo.js';
 
 const $ = selector => document.querySelector(selector);
 const esc = value => String(value ?? '').replace(/[&<>"']/g, character =>
   ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'})[character]);
 const screen = $('#order-screen');
 const apiRoot = './api/orders';
-const kinds = {po: '발주서', tech: '기술 사양서'};
-const demos = {
-  normal: ['정상', '두 문서의 사양이 일치합니다.'],
-  conflict: ['불일치', '층수 15층과 16층을 비교합니다.'],
-  missing: ['누락', '두 문서에 모터 용량이 비어 있습니다.'],
-};
 const statuses = {'일치': 'good', '확정': 'good', '불일치': 'conflict', '확인 필요': 'warning', '누락': 'missing'};
 const issue = row => ['불일치', '누락', '확인 필요'].includes(row.status);
 const badge = status => `<span class="order-badge ${statuses[status] ?? ''}">${esc(status)}</span>`;
@@ -74,7 +69,7 @@ function renderList(orders, mine) {
     '<a class="quiet" href="#mine">내 검토 대기</a>';
   screen.innerHTML = heading(mine ? '내 수주 검토 대기' : '수주 목록',
     mine ? '내가 담당하는 검토 중 수주를 확인합니다.' : '승강기 제어반 발주서와 기술 사양서를 검토하고 수주 사양표를 내려받습니다.',
-    user.canReviewOrders ? scopeLink + '<a class="primary" href="#new">새 수주 등록</a>' : '') +
+    user.canReviewOrders ? scopeLink + `<a class="primary" href="#new">${IS_DEMO ? '시연 문서로 시작' : '새 수주 등록'}</a>` : '') +
     (mine ? '' : summary('제어반 수주 현황', '진행 중인 검토와 확정된 수주를 확인하세요.',
       [['전체 수주', orders.length], ['검토 중', totalPending], ['확정', orders.length - totalPending]])) +
     `<section class="panel">
@@ -96,7 +91,8 @@ function renderList(orders, mine) {
       <td>${badge(order.status)}</td><td>${time(order.updatedAt)}</td></tr>`).join('');
     $('#order-list-empty').hidden = visible.length > 0;
     $('#order-list-empty').textContent = records.length ? '검색 조건에 맞는 수주가 없습니다.' :
-      mine ? '검토를 기다리는 내 수주가 없습니다.' : '등록된 수주가 없습니다. 새 수주 등록에서 시연용 문서를 불러올 수 있습니다.';
+      mine ? '검토를 기다리는 내 수주가 없습니다.' : IS_DEMO ? '시연용 수주가 없습니다. 시연 문서로 시작하세요.' :
+        '등록된 수주가 없습니다. 새 수주 등록에서 시연용 문서를 불러올 수 있습니다.';
   }
   $('#order-search').oninput = showRows;
   $('#order-status').onchange = showRows;
@@ -114,19 +110,45 @@ function uploadFields() {
     <label class="order-check"><input type="checkbox" name="allowAI"> 외부 AI 전송 허용 · 문서에서 읽은 텍스트와 셀 내용을 OpenAI에 전송하여 후보값을 추가로 찾습니다.</label>`;
 }
 
-function renderNew() {
-  screen.innerHTML = heading('새 수주 등록', '수주명과 고객사를 입력하고, 문서 유형별로 원본 파일을 등록하세요.') +
-    `<section class="panel order-card"><h2>시연용 문서 양식</h2>
-      <p class="order-muted">가상 고객사 호라이즌리프트의 PDF 발주서와 XLSX 기술 사양서입니다. 두 파일을 등록 양식에 담아 확인할 수 있습니다.</p>
+function sampleCards() {
+  const documentLink = (scenario, kind, text) => IS_DEMO
+    ? `<a href="${sampleAsset(scenario, kind)}" download="${esc(sampleName(scenario, kind))}">${text}</a>`
+    : `<a href="${apiRoot}/demo/${scenario}/${kind}">${text}</a>`;
+  return `<section class="panel order-card"><h2>시연용 문서 양식</h2>
+      <p class="order-muted">가상 고객사 호라이즌리프트의 PDF 발주서와 XLSX 기술 사양서입니다.</p>
       <div class="order-demos">${Object.entries(demos).map(([key, [label, text]]) => `
         <article class="order-sample"><h3>${label} 사례</h3><p class="order-muted">${text}</p>
-          <div class="order-actions"><a href="${apiRoot}/demo/${key}/po">발주서 PDF</a><a href="${apiRoot}/demo/${key}/tech">사양서 XLSX</a></div>
-          <button type="button" class="quiet" data-sample="${key}" style="margin-top:10px">문서 불러오기</button>
+          <div class="order-actions">${documentLink(key, 'po', '발주서 PDF')}${documentLink(key, 'tech', '사양서 XLSX')}</div>
+          <button type="button" class="${IS_DEMO ? 'primary' : 'quiet'} order-sample-start" data-sample="${key}">
+            ${IS_DEMO ? '이 사례로 시작' : '문서 불러오기'}</button>
         </article>`).join('')}</div>
       <details class="order-details order-demo-preview"><summary>시연용 발주서 양식 미리보기</summary>
-        <img loading="lazy" src="${apiRoot}/demo/normal/po/1" alt="호라이즌리프트 시연용 발주서 PDF 1쪽">
-      </details></section>
-    <section class="panel order-card"><h2>수주 정보</h2>
+        <img loading="lazy" src="${IS_DEMO ? sampleAsset('normal', 'preview') : `${apiRoot}/demo/normal/po/1`}" alt="호라이즌리프트 시연용 발주서 PDF 1쪽">
+      </details></section>`;
+}
+
+function renderNew() {
+  if (IS_DEMO) {
+    screen.innerHTML = heading('시연 문서 선택', '가상 사례를 선택해 문서별 후보값을 비교하고 XLSX를 내려받을 수 있습니다.') + sampleCards();
+    const buttons = [...screen.querySelectorAll('[data-sample]')];
+    for (const button of buttons) {
+      button.onclick = async () => {
+        errorMessage();
+        buttons.forEach(control => { control.disabled = true; });
+        try {
+          const order = await request('', {scenario: button.dataset.sample});
+          if (button.isConnected) location.hash = `order/${order.id}`;
+        } catch (error) {
+          if (button.isConnected) errorMessage(error.message);
+        } finally {
+          buttons.forEach(control => { control.disabled = false; });
+        }
+      };
+    }
+    return;
+  }
+  screen.innerHTML = heading('새 수주 등록', '수주명과 고객사를 입력하고, 문서 유형별로 원본 파일을 등록하세요.') + sampleCards() +
+    `<section class="panel order-card"><h2>수주 정보</h2>
       <form id="order-upload-form">
         <div class="order-form-grid order-upload">
           <label class="order-input">수주명<input name="name" maxlength="120" required placeholder="예시 · 호라이즌 센터 제어반"></label>
@@ -259,10 +281,11 @@ function renderOrder(order) {
   const warningCount = order.documents.reduce((sum, entry) => sum + entry.warnings.length, 0);
   const pending = order.rows.filter(row => !row.decision).length;
   const exportName = order.confirmedAt ? '확정본 XLSX 다운로드' : '검토 중 초안 XLSX 다운로드';
-  const docUrl = document => `${apiRoot}${idPath(order)}/documents/${document.id}`;
+  const docUrl = document => IS_DEMO ? sampleAsset(document.scenario, document.kind) :
+    `${apiRoot}${idPath(order)}/documents/${document.id}`;
   const sources = new Map();
   const docs = order.documents.map(document => `<article class="order-doc"><h3>${esc(kinds[document.kind])}</h3>
-    <a href="${docUrl(document)}">${esc(document.name)}</a><p class="order-meta">${esc(document.method)}</p>
+    <a href="${docUrl(document)}" ${IS_DEMO ? `download="${esc(document.name)}"` : ''}>${esc(document.name)}</a><p class="order-meta">${esc(document.method)}</p>
     ${document.warnings.length ? `<ul>${document.warnings.map((warning, index) => {
       const key = `warn-${document.id}-${index}`;
       sources.set(key, {...warning.location, document: document.id, text: warning.message, source: warning.source});
@@ -319,7 +342,7 @@ function renderOrder(order) {
         <button class="quiet" type="button" id="order-source-dismiss" aria-label="원문 패널 닫기">닫기</button></div>
       <div class="order-source-body" id="order-source-panel-content"></div>
     </aside></div>
-    ${writable ? `<details class="panel order-card order-details order-upload">
+    ${writable && !IS_DEMO ? `<details class="panel order-card order-details order-upload">
       <summary>문서 추가 등록</summary><p class="order-muted">문서를 추가하면 기존 검토값을 이력에 남기고 전체 항목을 다시 검토합니다.</p>
       <form id="order-upload-form">${uploadFields()}<button class="primary" type="submit">추가 문서 등록 및 추출</button></form>
     </details>` : ''}
@@ -331,7 +354,7 @@ function renderOrder(order) {
   $('#order-export').onclick = event => downloadExport(event);
   bindSources(sources, docUrl, order.documents);
   bindReview(order, writable);
-  if (writable) bindUpload($('#order-upload-form'), order);
+  if (writable && !IS_DEMO) bindUpload($('#order-upload-form'), order);
 }
 
 function bindSources(sources, docUrl, documents) {
@@ -354,11 +377,12 @@ function bindSources(sources, docUrl, documents) {
     panel.hidden = !item || !desktop;
     if (sourceDialog.open && (desktop || !item)) sourceDialog.close();
     if (!item) return;
-    const url = docUrl(documents.find(document => document.id === item.document));
+    const document = documents.find(entry => entry.id === item.document);
+    const url = docUrl(document);
     const target = desktop ? $('#order-source-panel-content') : $('#order-source-content');
-    const imageUrl = item.page ? `${url}/${item.page}` : '';
+    const imageUrl = item.page ? (IS_DEMO ? sampleAsset(document.scenario, 'preview') : `${url}/${item.page}`) : '';
     target.innerHTML = `<p><b>${esc(item.source)}</b></p><pre>${esc(item.text)}</pre>
-      <div class="order-actions"><a class="order-button quiet" href="${url}">원본 파일 다운로드</a>
+      <div class="order-actions"><a class="order-button quiet" href="${url}" ${IS_DEMO ? `download="${esc(document.name)}"` : ''}>원본 파일 다운로드</a>
       ${imageUrl ? `<a class="order-link" href="${imageUrl}" target="_blank" rel="noopener">PDF 페이지 크게 보기</a>` : ''}</div>
       ${imageUrl ? `<img src="${imageUrl}" alt="원본 PDF ${item.page}쪽 미리보기">` : ''}`;
     if (!desktop && !sourceDialog.open) sourceDialog.showModal();
@@ -397,7 +421,7 @@ async function downloadExport(event) {
   link.setAttribute('aria-busy', 'true');
   errorMessage();
   try {
-    const response = await fetch(link.href);
+    const response = await apiFetch(link.getAttribute('href'));
     if (response.status === 401) location.replace('./login.html');
     if (!response.ok) throw Error((await response.json()).error || '엑셀 파일을 생성하지 못했습니다.');
     const filename = response.headers.get('Content-Disposition')?.split("UTF-8''")[1];
@@ -534,13 +558,20 @@ async function render() {
 desktopSource.addEventListener('change', () => updateSourceView?.(Boolean(sourceKey)));
 
 $('#orders-logout').onclick = async () => {
+  if (IS_DEMO) { location.href = './'; return; }
   await apiFetch('./api/logout', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
   location.replace('./login.html');
 };
 const login = await apiFetch('./api/me');
 if (login.ok) {
   user = await login.json();
-  $('#identity').textContent = `${user.username} · ${user.canReviewOrders ? '수주 검토 담당자' : '조회 사용자'}`;
+  $('#identity').textContent = IS_DEMO ? `공개 시연 · ${user.canReviewOrders ? '관리 체험' : '조회 체험'}` :
+    `${user.username} · ${user.canReviewOrders ? '수주 검토 담당자' : '조회 사용자'}`;
+  if (IS_DEMO) {
+    $('#order-demo-notice').hidden = false;
+    $('#orders-logout').textContent = '대시보드';
+    $('#order-new-label').textContent = '시연 문서 선택';
+  }
   $('[data-page="new"]').hidden = !user.canReviewOrders;
   window.addEventListener('hashchange', render);
   await render();

@@ -5,7 +5,7 @@
   display: flex; align-items: center; gap: 13px; padding: 13px 14px; border-radius: 8px;
   color: #52647f; text-decoration: none; font-weight: 600; font-size: 14px;
 }
-.orders-app .sidebar nav a span { font-size: 20px; line-height: 1; }
+.orders-app .sidebar nav a span[aria-hidden] { font-size: 20px; line-height: 1; }
 .orders-app .sidebar nav a:hover, .orders-app .sidebar nav a[aria-current] { background: #eef0fa; color: var(--blue); }
 .orders-app .sidebar nav .order-dashboard-link { display: none; }
 .orders-app .sidebar-foot { margin-top: auto; }
@@ -39,6 +39,7 @@
   min-width: 0; overflow-wrap: anywhere;
 }
 .order-sample > p { margin: 6px 0 12px; }
+.order-sample-start { margin-top: 10px; }
 .order-sample a, .order-doc a { color: var(--blue); font-size: 14px; }
 .order-input { display: grid; gap: 7px; font-weight: 600; font-size: 14px; color: #293e61; }
 .order-input input, .orders-app select, .order-review input[type=text], .order-list-tools input {

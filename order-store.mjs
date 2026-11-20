@@ -4,7 +4,8 @@ import {mkdirSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {DatabaseSync} from 'node:sqlite';
-import {compare, fields, groundedCandidates, localCandidates, normalize, sourceLocation} from './order-spec.mjs';
+import {compare, fields, groundedCandidates, localCandidates, nowKst as now, OrderError,
+  orderSummary, presentOrder, required, reviewOrder, sourceLocation} from './public/order-spec.js';
 
 const workerPath = fileURLToPath(new URL('./order-files.py', import.meta.url));
 const maxFile = 8 * 1024 * 1024;
@@ -12,15 +13,6 @@ const xlsx = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
 const mime = {pdf: 'application/pdf', xlsx};
 const kinds = {po: '발주서', tech: '기술 사양서'};
 const demos = {normal: '정상', conflict: '불일치', missing: '누락'};
-const now = () => new Date(Date.now() + 9 * 3600000).toISOString().replace('Z', '+09:00');
-const required = (value, max) => typeof value === 'string' && value.trim().length <= max ? value.trim() : '';
-
-class OrderError extends Error {
-  constructor(message, status = 400) {
-    super(message);
-    this.status = status;
-  }
-}
 
 function worker(action, data) {
   return new Promise((resolve, reject) => {
@@ -136,10 +128,6 @@ async function extract(files, allowAI) {
   return result;
 }
 
-function publicOrder(order) {
-  return {...order, documents: order.documents.map(({candidates, ...document}) => document), rows: compare(order)};
-}
-
 export function createOrders(filename) {
   let db;
   function database() {
@@ -208,53 +196,6 @@ export function createOrders(filename) {
     order.updatedAt = at;
   }
 
-  function review(order, data, user) {
-    const at = now();
-    let changed = false;
-    for (const row of compare(order)) {
-      const input = data.decisions?.[row.key];
-      if (!input) continue;
-      let decision = null;
-      if (!input.clear) {
-        const selected = row.candidates.find(item => item.id === input.candidate);
-        const value = selected?.value ?? required(input.value, 1000);
-        const reason = required(input.reason, 1000);
-        if (input.candidate && !selected) throw new OrderError(`${row.label}의 출처를 다시 선택하세요.`);
-        if (normalize(row.key, value) === null) {
-          throw new OrderError(`${row.label}의 값${row.unit ? `과 단위(${row.unit})` : ''}을 확인하세요.`);
-        }
-        if ((!selected || selected.needsReview) && !reason) {
-          throw new OrderError(`${row.label}의 직접 입력 또는 확인 사유를 남겨 주세요.`);
-        }
-        decision = {value, reason, source: selected?.source ?? '직접 입력', candidate: selected?.id ?? ''};
-      }
-      if (JSON.stringify(row.decision) === JSON.stringify(decision)) continue;
-      if (decision) order.decisions[row.key] = decision;
-      else delete order.decisions[row.key];
-      changed = true;
-      order.history.push({at, by: user.username, action: decision ? '검토값 저장' : '검토값 취소', label: row.label,
-        before: row.decision?.value, value: decision?.value, source: decision?.source, reason: decision?.reason});
-    }
-    if (data.finalize === true) {
-      if (data.confirmed !== true || compare(order).some(row => !row.decision) ||
-          (order.documents.some(document => document.warnings.length) && data.readWarnings !== true)) {
-        throw new OrderError('모든 검토값과 확인 필요 문서를 검토하고 담당자 확인란을 선택하세요.');
-      }
-      order.status = '확정';
-      order.confirmedAt = at;
-      order.history.push({at, by: user.username, action: '수주 확정', value: order.number,
-        reason: data.readWarnings === true ? '확인 필요 문서 포함 원문 및 전체 검토값 확인' : '원문 및 전체 검토값 확인'});
-      changed = true;
-    }
-    if (changed) {
-      order.reviewer = user.username;
-      order.updatedAt = at;
-      const revision = order.revision++;
-      save(order, revision);
-    }
-    return order;
-  }
-
   return async function handle(req, res, json, route, body, user) {
     const [, , , id, action, documentId, page] = route.split('/');
     const method = req.method;
@@ -279,11 +220,7 @@ export function createOrders(filename) {
       }
       if (!id && method === 'GET') {
         const orders = database().prepare('SELECT record FROM orders').all().map(({record}) => JSON.parse(record));
-        const entries = orders.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map(order => ({
-          id: order.id, number: order.number, name: order.name, customer: order.customer, status: order.status,
-          updatedAt: order.updatedAt, documents: order.documents.length, pending: fields.length - Object.keys(order.decisions).length,
-          mine: (order.reviewAssignee ?? order.history.find(entry => entry.action === '문서 등록')?.by) === user.username,
-        }));
+        const entries = orders.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map(order => orderSummary(order, user.username));
         return json(200, {orders: entries, canWrite});
       }
       if (!id && method === 'POST') {
@@ -297,10 +234,10 @@ export function createOrders(filename) {
         const attachments = await extract(uploadFiles(data.files), data.allowAI === true);
         addDocuments(order, attachments, user);
         save(order, null, attachments);
-        return json(201, publicOrder(order));
+        return json(201, presentOrder(order));
       }
       const order = load(id);
-      if (!action && method === 'GET') return json(200, publicOrder(order));
+      if (!action && method === 'GET') return json(200, presentOrder(order));
       if (action === 'documents' && !documentId && method === 'POST') {
         const data = await body();
         ensureEditable(order, data.revision);
@@ -310,15 +247,16 @@ export function createOrders(filename) {
         addDocuments(order, attachments, user);
         const revision = order.revision++;
         save(order, revision, attachments);
-        return json(200, publicOrder(order));
+        return json(200, presentOrder(order));
       }
       if (action === 'review' && method === 'POST') {
         const data = await body();
         ensureEditable(order, data.revision);
-        return json(200, publicOrder(review(order, data, user)));
+        if (reviewOrder(order, data, user.username)) save(order, data.revision);
+        return json(200, presentOrder(order));
       }
       if (action === 'export' && method === 'GET') {
-        const {bytes} = await worker('export', {order: publicOrder(order)});
+        const {bytes} = await worker('export', {order: presentOrder(order)});
         return sendFile(Buffer.from(bytes, 'base64'), xlsx, `${order.number}-${order.confirmedAt ? '확정본' : '검토중-초안'}.xlsx`);
       }
       if (action === 'documents' && method === 'GET') {

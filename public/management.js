@@ -19,14 +19,14 @@ function navigation() {
   <span class="nav-icon" aria-hidden="true">${model.icon}</span><span>${model.short}</span></button>`;
  const items = navGroups.map(([name, keys]) => `<div class="work-nav-group" role="group" aria-label="${name}">
   <div class="work-nav-label" aria-hidden="true">${name}</div>
-  ${keys.map(key => key === 'orders' ? (IS_DEMO ? '' :
-   '<a href="./orders.html" class="work-nav-link"><span class="nav-icon" aria-hidden="true">▤</span>제어반 수주</a>') :
+  ${keys.map(key => key === 'orders' ?
+   '<a href="./orders.html" class="work-nav-link"><span class="nav-icon" aria-hidden="true">▤</span>제어반 수주</a>' :
    button(key, modules[key] || extraPages[key])).join('')}</div>`).join('');
  return button('dashboard', {short:'통합 대시보드',icon:'◫'}) + items;
 }
 
 function taskPanel() {
- const canReview = !IS_DEMO && user.canReviewOrders;
+ const canReview = user.canReviewOrders;
  const count = data.inspections.filter(overdue).length;
  return `<section class="panel task-panel" aria-labelledby="task-heading">
   <h2 id="task-heading">처리할 일</h2><div class="task-grid">
@@ -41,7 +41,7 @@ function taskPanel() {
 }
 
 async function loadOrderQueue() {
- if (IS_DEMO || !user.canReviewOrders) return;
+ if (!user.canReviewOrders) return;
  orderQueue = null;
  try {
   const response = await apiFetch('./api/orders');
