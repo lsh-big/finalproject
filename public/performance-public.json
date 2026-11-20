@@ -1,0 +1,103 @@
+{
+  "status": "ready",
+  "updatedAt": "2026-11-20T02:02:39.269Z",
+  "years": [
+    2023,
+    2024,
+    2025
+  ],
+  "records": {
+    "samil": {
+      "2023": {
+        "status": "confirmed",
+        "receipt": "20240408002692",
+        "revenue": 45983391552,
+        "previousRevenue": 35712662411,
+        "profit": 1269517772
+      },
+      "2024": {
+        "status": "confirmed",
+        "receipt": "20250410001735",
+        "revenue": 50014572298,
+        "previousRevenue": 45983391552,
+        "profit": 5343576919
+      },
+      "2025": {
+        "status": "confirmed",
+        "receipt": "20260406000223",
+        "revenue": 48890974152,
+        "previousRevenue": 50014572298,
+        "profit": 1510411461
+      }
+    },
+    "daesung": {
+      "2023": {
+        "status": "confirmed",
+        "receipt": "20240408003756",
+        "revenue": 15408015533,
+        "previousRevenue": 14991729394,
+        "profit": 620174712
+      },
+      "2024": {
+        "status": "confirmed",
+        "receipt": "20250409001693",
+        "revenue": 19739302947,
+        "previousRevenue": 15408015533,
+        "profit": 1503873483
+      },
+      "2025": {
+        "status": "confirmed",
+        "receipt": "20260401000445",
+        "revenue": 13743296713,
+        "previousRevenue": 19739302947,
+        "profit": 399045546
+      }
+    },
+    "mount": {
+      "2023": {
+        "status": "confirmed",
+        "receipt": "20240401001902",
+        "revenue": 60473672434,
+        "previousRevenue": 42057129195,
+        "profit": 2877770961
+      },
+      "2024": {
+        "status": "confirmed",
+        "receipt": "20250401002532",
+        "revenue": 65983985614,
+        "previousRevenue": 60473672434,
+        "profit": 2465201480
+      },
+      "2025": {
+        "status": "confirmed",
+        "receipt": "20260401004605",
+        "revenue": 63083526582,
+        "previousRevenue": 65983985614,
+        "profit": 4676411442
+      }
+    },
+    "daemyeong-ulsan": {
+      "2023": {
+        "status": "confirmed",
+        "receipt": "20240408003290",
+        "revenue": 32022271646,
+        "previousRevenue": 17937911983,
+        "profit": 359898818
+      },
+      "2024": {
+        "status": "confirmed",
+        "receipt": "20250411002511",
+        "revenue": 28056086265,
+        "previousRevenue": 32022271646,
+        "profit": -1603909183
+      },
+      "2025": {
+        "status": "confirmed",
+        "receipt": "20260430000057",
+        "revenue": 29014291797,
+        "previousRevenue": 28056086265,
+        "profit": 238983215
+      }
+    }
+  }
+}

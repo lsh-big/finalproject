@@ -8,5 +8,20 @@ test('Pages build is explicitly demo-only, complete, relative and contains no pr
  const visited=new Set();async function visit(name){if(visited.has(name))return;visited.add(name);const text=await readFile(path.join(out,name),'utf8');assert.doesNotMatch(text,/from ['"]node:|ADMIN_PASSWORD|users\.json|\.private\//);for(const m of text.matchAll(/\bimport\s+(?:[^;]*?\s+from\s+)?['"]([^'"]+)['"]|\bimport\(['"]([^'"]+)['"]\)/g)){const target=m[1]||m[2];assert.ok(target.startsWith('./'));await visit(path.posix.normalize(path.posix.join(path.posix.dirname(name),target)));}}
  for(const name of pagesFiles.filter(n=>n.endsWith('.js')))await visit(name);
  for(const file of pagesFiles.filter(n=>n.endsWith('.html'))){const html=await readFile(path.join(out,file),'utf8');for(const m of html.matchAll(/(?:src|href)="([^"]+)"/g)){const target=m[1];if(target.startsWith('#'))continue;assert.ok((await stat(path.join(out,target.endsWith('/')?target+'index.html':target))).isFile());for(const base of ['https://example.github.io/','https://example.github.io/finalproject/'])assert.ok(new URL(target,base).pathname.startsWith(new URL(base).pathname));}}
+ const published=JSON.parse(await readFile(path.join(out,'performance-public.json'),'utf8'));
+ assert.deepEqual(Object.keys(published).sort(),['records','status','updatedAt','years']);
+ assert.equal(published.status,'ready');
+ assert.ok(Number.isFinite(Date.parse(published.updatedAt)));
+ assert.deepEqual(Object.keys(published.records).sort(),['daemyeong-ulsan','daesung','mount','samil']);
+ for(const company of Object.values(published.records)){
+  assert.deepEqual(Object.keys(company),published.years.map(String));
+  for(const row of Object.values(company)){
+   if(row.status==='not-filed'){assert.deepEqual(Object.keys(row),['status']);continue;}
+   assert.ok(['confirmed','needs-review'].includes(row.status));
+   assert.deepEqual(Object.keys(row).sort(),['previousRevenue','profit','receipt','revenue','status']);
+   assert.match(row.receipt,/^\d{14}$/);
+   for(const field of ['previousRevenue','profit','revenue'])assert.ok(row[field]===null||Number.isSafeInteger(row[field]));
+  }
+ }
 });
 

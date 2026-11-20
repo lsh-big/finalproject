@@ -1,5 +1,7 @@
 import assert from 'node:assert/strict';
-import {mkdir,writeFile} from 'node:fs/promises';
+import {mkdir,readFile,writeFile} from 'node:fs/promises';
+const performance=JSON.parse(await readFile(new URL('../public/performance-public.json',import.meta.url),'utf8'));
+const latestYear=performance.years.at(-1);
 const targets=await fetch('http://127.0.0.1:9224/json').then(r=>r.json());
 const target=targets.find(t=>t.type==='page');assert.ok(target);
 const ws=new WebSocket(target.webSocketDebuggerUrl);await new Promise((r,j)=>{ws.onopen=r;ws.onerror=j;});let id=0;const pending=new Map(),errors=[];
@@ -13,12 +15,16 @@ try{
  await send('Runtime.enable');await send('Network.enable');await send('Page.navigate',{url:'http://127.0.0.1:3020/finalproject/'});await until('document.querySelectorAll("#nav button").length===14');
  assert.ok(await evaluate('document.querySelector(".notice").innerText.includes("공개 시연")'));
  await evaluate("document.querySelector('[data-go=performance]').click()");
- assert.ok(await evaluate("document.querySelector('#performance-overview').textContent.includes('2025년')"));
+ await until(`document.querySelector('#performance-overview')?.textContent.includes('${latestYear}년')`);
  assert.deepEqual(await evaluate("Array.from(document.querySelectorAll('.industry-table tbody th b'), cell => cell.textContent)"),
   ['삼일엘텍', '대성아이디에스', '마운트지앤디', '대명엘리베이터(울산)']);
+ assert.match(await evaluate("document.querySelector('#performance-source').textContent"),/OpenDART.*자료 확인일/);
+ const receipt=Object.values(performance.records).find(company=>company[latestYear].receipt)[latestYear].receipt;
+ assert.ok(await evaluate(`Array.from(document.querySelectorAll('.industry-table tbody a')).some(link=>new URL(link.href).searchParams.get('rcpNo')==='${receipt}')`));
  const marginAxis=await evaluate("document.querySelector('.industry-bar-axis').textContent");
- await evaluate("document.querySelector('#performance-year').value='2024';document.querySelector('#performance-year').dispatchEvent(new Event('change'))");
- assert.ok(await evaluate("document.querySelector('.industry-table').innerText.includes('-1.8%')"));
+ const comparisonYear=performance.years[0];
+ await evaluate(`document.querySelector('#performance-year').value='${comparisonYear}';document.querySelector('#performance-year').dispatchEvent(new Event('change'))`);
+ assert.ok(await evaluate(`document.querySelector('#performance-overview').textContent.includes('${comparisonYear}년')`));
  assert.equal(await evaluate("document.querySelector('.industry-bar-axis').textContent"),marginAxis);
  assert.ok(await evaluate("document.querySelector('#performance-trend').getContext('2d').getImageData(0,0,540,216).data.some(value=>value>0)"));
  for(const key of ['dashboard','customers','products','tickets','inspections','parts','staff','contracts','field','monitor','preventive','integrations']){await evaluate(`document.querySelector('[data-go=${key}]').click()`);assert.ok(await evaluate('document.querySelector("#content").innerHTML.length>300'));}
@@ -32,6 +38,7 @@ try{
  await evaluate(`document.querySelector('[data-ledger-action=receive-payment]').click();document.querySelector('#ledger-form [name=amount]').value='200000';document.querySelector('#ledger-form').requestSubmit();`);await until('!document.querySelector("#ledger-editor").open');assert.ok(await evaluate('document.querySelector(".ledger-panel").innerText.includes("부분 수금")'));
  await evaluate(`document.querySelector('[data-go=dashboard]').click()`);await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});await mkdir('tests/artifacts',{recursive:true});let shot=await send('Page.captureScreenshot',{format:'png'});await writeFile('tests/artifacts/pages-demo-desktop.png',Buffer.from(shot.data,'base64'));
  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});for(const key of ['dashboard','parts','contracts','field','monitor','integrations','performance']){await evaluate(`document.querySelector('[data-go=${key}]').click()`);assert.ok(await evaluate('document.documentElement.scrollWidth<=window.innerWidth'),'Mobile overflow '+key);}
+ await until("document.querySelectorAll('.industry-company-card').length===4");
  assert.ok(await evaluate("getComputedStyle(document.querySelector('.industry-company-cards')).display==='grid' && getComputedStyle(document.querySelector('#nav')).display==='none'"));
  await evaluate("document.querySelector('#performance-nav-toggle').click()");
  assert.ok(await evaluate("getComputedStyle(document.querySelector('#nav')).display!=='none'"));

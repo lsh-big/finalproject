@@ -1,32 +1,15 @@
 import { apiFetch, IS_DEMO } from './client.js';
 
-const sampleCompanies = [
-  { id: 'samil', name: '삼일엘텍', business: '승강기 제어반·인버터', color: '#315ee8', accounts: {
-    2023: { revenue: 380, profit: 27 },
-    2024: { revenue: 420, profit: 33 },
-    2025: { revenue: 470, profit: 39 }
-  } },
-  { id: 'daesung', name: '대성아이디에스', business: '승강기·제어반', color: '#087c70', accounts: {
-    2023: { revenue: 280, profit: 16 },
-    2024: { revenue: 300, profit: 20 },
-    2025: { revenue: 325, profit: 24 }
-  } },
-  { id: 'mount', name: '마운트지앤디', business: '승강기 전장·부품', color: '#7055a6', accounts: {
-    2023: { revenue: 560, profit: 24 },
-    2024: { revenue: 590, profit: 29 },
-    2025: { revenue: 610, profit: 35 }
-  } },
-  { id: 'daemyeong-ulsan', name: '대명엘리베이터(울산)', business: '완성 승강기', color: '#a45a15', accounts: {
-    2023: { revenue: 195, profit: 9 },
-    2024: { revenue: 220, profit: -4 },
-    2025: { revenue: 245, profit: 15 }
-  } }
+const companyProfiles = [
+  { id: 'samil', name: '삼일엘텍', business: '승강기 제어반·인버터', color: '#315ee8' },
+  { id: 'daesung', name: '대성아이디에스', business: '승강기·제어반', color: '#087c70' },
+  { id: 'mount', name: '마운트지앤디', business: '승강기 전장·부품', color: '#7055a6' },
+  { id: 'daemyeong-ulsan', name: '대명엘리베이터(울산)', business: '완성 승강기', color: '#a45a15' }
 ];
-const sampleYears = [2023, 2024, 2025];
 const number = new Intl.NumberFormat('ko-KR', { maximumFractionDigits: 1 });
 const missing = '—';
 const currency = value => value == null ? missing : amount(value) + '억 원';
-let selectedYear = IS_DEMO ? sampleYears.at(-1) : null;
+let selectedYear = null;
 
 const amount = value => value == null ? missing : number.format(value);
 const percent = value => value == null ? missing : number.format(value) + '%';
@@ -39,7 +22,7 @@ const growth = (current, previous) => previous?.revenue > 0 && current?.revenue 
 const hundredMillion = value => Number.isSafeInteger(value) ? value / 100000000 : null;
 
 function disclosedCompanies(records, years) {
-  return sampleCompanies.map(({ id, name, business, color }) => ({
+  return companyProfiles.map(({ id, name, business, color }) => ({
     id, name, business, color,
     accounts: Object.fromEntries(years.map(year => {
       const record = records?.[id]?.[year];
@@ -62,21 +45,17 @@ function yearOptions(years) {
 export function renderIndustryPerformance() {
   return `<div class="industry-performance">
     <div class="industry-controls">
-      <p id="performance-source">${IS_DEMO
-        ? '<strong>가상 데이터</strong> 모든 수치는 화면 시연용입니다.'
-        : '<strong>OpenDART</strong><span>금융감독원 공시자료를 조회합니다.</span>'}</p>
-      <label>결산연도 <select id="performance-year" ${IS_DEMO ? '' : 'disabled'}>${IS_DEMO ? yearOptions(sampleYears) : '<option>조회 중</option>'}</select></label>
+      <p id="performance-source"><strong>OpenDART</strong><span>금융감독원 공시자료를 불러오는 중입니다.</span></p>
+      <label>결산연도 <select id="performance-year" disabled><option>조회 중</option></select></label>
     </div>
-    <div id="performance-results" aria-busy="${!IS_DEMO}">${IS_DEMO
-      ? results(sampleCompanies, sampleYears, selectedYear)
-      : '<p role="status">실적 자료를 불러오는 중입니다.</p>'}</div>
+    <div id="performance-results" aria-busy="true"><p role="status">실적 자료를 불러오는 중입니다.</p></div>
   </div>`;
 }
 
 function results(companies, years, year) {
   const rows = companies.map(company => {
     const record = company.accounts[year];
-    const previous = IS_DEMO ? company.accounts[year - 1] : { revenue: record?.previousRevenue };
+    const previous = { revenue: record?.previousRevenue };
     return { ...company, record, margin: margin(record), growth: growth(record, previous) };
   });
   const [samil] = rows;
@@ -90,7 +69,7 @@ function results(companies, years, year) {
   return `<section aria-labelledby="performance-overview">
     <div class="industry-overview-heading">
       <h2 id="performance-overview">삼일엘텍 ${year}년 실적</h2>
-      ${IS_DEMO ? '' : `<span>공시 확인 <strong>${filedCount}/${rows.length}개사</strong></span>`}
+      <span>공시 확인 <strong>${filedCount}/${rows.length}개사</strong></span>
     </div>
     <div class="industry-metrics">${metrics.map(([label, value, unit]) =>
       `<article class="panel"><span>${label}</span><strong>${value}${value !== missing && unit ? ` <small>${unit}</small>` : ''}</strong></article>`).join('')}</div>
@@ -106,7 +85,7 @@ function results(companies, years, year) {
           : '<p class="empty">확인된 매출 자료가 없습니다.</p>'}
         <details class="industry-trend-data">
           <summary>연도별 매출 수치</summary>
-          <div class="table-wrap"><table aria-label="연도별 ${IS_DEMO ? '가상 ' : ''}매출액 (억 원)">
+          <div class="table-wrap"><table aria-label="연도별 매출액 (억 원)">
             <thead><tr><th scope="col">기업</th>${years.map(item => `<th scope="col">${item}년</th>`).join('')}</tr></thead>
             <tbody>${companies.map(({ name, accounts }) => `<tr><th scope="row">${name}</th>${years.map(item =>
               `<td>${amount(accounts[item]?.revenue)}</td>`).join('')}</tr>`).join('')}</tbody>
@@ -155,12 +134,12 @@ function filingStatus(record) {
     stale: ['amber', '이전 조회 자료'],
     unavailable: ['red', '조회 실패']
   };
-  const [tone, label] = IS_DEMO ? ['', '가상 데이터'] : statuses[record?.status] ?? statuses.unavailable;
+  const [tone, label] = statuses[record?.status] ?? statuses.unavailable;
   return `<span class="status ${tone}">${label}</span>`;
 }
 
 function sourceLink(record, name, year) {
-  if (IS_DEMO || !record?.receipt) return '<span class="industry-no-source">—</span>';
+  if (!record?.receipt) return '<span class="industry-no-source">—</span>';
   return `<a class="industry-source-link" href="https://dart.fss.or.kr/dsaf001/main.do?rcpNo=${record.receipt}" target="_blank" rel="noopener noreferrer" aria-label="${name} ${year}년 감사보고서">감사보고서</a>`;
 }
 
@@ -250,8 +229,41 @@ function drawTrend(canvas, companies, years, year) {
 export async function bindIndustryPerformance(root) {
   const filter = root.querySelector('#performance-year');
   const output = root.querySelector('#performance-results');
-  let companies = sampleCompanies;
-  let years = sampleYears;
+  const source = root.querySelector('#performance-source');
+  let payload;
+  try {
+    const response = IS_DEMO
+      ? await fetch(new URL('./performance-public.json', import.meta.url), { redirect: 'error' })
+      : await apiFetch('./api/performance', { cache: 'no-store' });
+    if (!response.ok) throw Error('실적 조회 실패');
+    payload = await response.json();
+  } catch {
+    payload = { status: 'unavailable' };
+  }
+  if (!output.isConnected) return;
+
+  const descriptions = {
+    unconfigured: '서버의 OpenDART 인증키 설정을 확인해 주세요.',
+    unavailable: 'OpenDART 실적 자료를 불러오지 못했습니다.',
+    partial: '일부 자료를 갱신하지 못했습니다. 기업별 공시 상태를 확인하세요.',
+    ready: IS_DEMO ? '감사보고서에서 확인해 공개한 실적입니다.' : '감사보고서에서 확인된 최근 결산연도를 표시합니다.'
+  };
+  const checkedAt = new Date(payload.updatedAt);
+  const checkedLabel = Number.isFinite(checkedAt.getTime())
+    ? ' 자료 확인일 ' + new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul' }).format(checkedAt) : '';
+  source.querySelector('span').textContent = (descriptions[payload.status] ?? descriptions.unavailable) + checkedLabel;
+  output.setAttribute('aria-busy', 'false');
+
+  const years = (payload.years ?? []).filter(year => Number.isInteger(year) && year >= 2000 && year <= 9999);
+  if (!years.length) {
+    filter.innerHTML = '<option>조회 연도 없음</option>';
+    output.innerHTML = '<p class="panel empty" role="status">표시할 결산 실적이 없습니다.</p>';
+    return;
+  }
+  if (!years.includes(selectedYear)) selectedYear = years.at(-1);
+  filter.innerHTML = yearOptions(years);
+  filter.disabled = false;
+  const companies = disclosedCompanies(payload.records, years);
   const render = () => {
     output.innerHTML = results(companies, years, selectedYear);
     drawTrend(output.querySelector('#performance-trend'), companies, years, selectedYear);
@@ -261,38 +273,5 @@ export async function bindIndustryPerformance(root) {
     render();
   });
 
-  if (!IS_DEMO) {
-    const source = root.querySelector('#performance-source');
-    let payload;
-    try {
-      const response = await apiFetch('./api/performance', { cache: 'no-store' });
-      if (!response.ok) throw Error('실적 조회 실패');
-      payload = await response.json();
-    } catch {
-      payload = { status: 'unavailable' };
-    }
-    if (!output.isConnected) return;
-    years = (payload.years ?? []).filter(year => Number.isInteger(year) && year >= 2000 && year <= 9999);
-    const descriptions = {
-      unconfigured: '서버의 OpenDART 인증키 설정을 확인해 주세요.',
-      unavailable: 'OpenDART 실적 자료를 불러오지 못했습니다.',
-      partial: '일부 자료를 갱신하지 못했습니다. 기업별 공시 상태를 확인하세요.',
-      ready: '감사보고서에서 확인된 최근 결산연도를 표시합니다.'
-    };
-    const checkedAt = new Date(payload.updatedAt);
-    const checkedLabel = Number.isFinite(checkedAt.getTime())
-      ? ' 조회일 ' + new Intl.DateTimeFormat('ko-KR', { timeZone: 'Asia/Seoul' }).format(checkedAt) : '';
-    source.querySelector('span').textContent = (descriptions[payload.status] ?? descriptions.unavailable) + checkedLabel;
-    output.setAttribute('aria-busy', 'false');
-    if (!years.length) {
-      filter.innerHTML = '<option>조회 연도 없음</option>';
-      output.innerHTML = '<p class="panel empty" role="status">표시할 결산 실적이 없습니다.</p>';
-      return;
-    }
-    if (!years.includes(selectedYear)) selectedYear = years.at(-1);
-    filter.innerHTML = yearOptions(years);
-    filter.disabled = false;
-    companies = disclosedCompanies(payload.records, years);
-  }
   render();
 }
