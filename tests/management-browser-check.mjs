@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 const targets=await fetch('http://127.0.0.1:9224/json').then(r=>r.json());
 const target=targets.find(t=>t.type==='page');assert.ok(target);
@@ -10,7 +10,7 @@ async function until(expression){for(let i=0;i<60;i++){if(await evaluate(express
 try{
  await send('Runtime.enable');await until('!!document.querySelector("#login")');
  await evaluate(`document.querySelector('[name=username]').value='admin';document.querySelector('[name=password]').value='1234';document.querySelector('#login').requestSubmit();`);
- await until('document.querySelectorAll("#nav button").length===13');
+ await until('document.querySelectorAll("#nav button").length===14');
  assert.equal(await evaluate('document.querySelectorAll(".kpi").length'),4);
  for(const key of ['customers','products','tickets','inspections','parts','staff','contracts']){
   await evaluate(`document.querySelector('[data-go=${key}]').click()`);

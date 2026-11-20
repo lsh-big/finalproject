@@ -4,11 +4,13 @@ import {randomBytes,scryptSync,timingSafeEqual} from 'node:crypto';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createManagement} from './management-store.mjs';
+import {createOpenDartPerformance} from './opendart-performance.mjs';
 const dir=path.dirname(fileURLToPath(import.meta.url));
 const root=path.join(dir,'public');
 const basePath=process.env.BASE_PATH?'/'+process.env.BASE_PATH.replace(/^\/+|\/+$/g,''):'';
 const store=process.env.AUTH_FILE||path.join(dir,'.private','users.json');
 const management=createManagement(process.env.MANAGEMENT_FILE||path.join(path.dirname(store),'management.json'));
+const performance=createOpenDartPerformance(path.join(dir,'.private'));
 const hash=(password,salt=randomBytes(16).toString('hex'))=>({salt,hash:scryptSync(password,salt,64).toString('hex')});
 let users;
 try{users=JSON.parse(await readFile(store,'utf8'));}catch(error){
@@ -49,6 +51,11 @@ const server=http.createServer(async(req,res)=>{
       if(name==='/api/management')return await management(req,res,user,body);
       if(name==='/api/telemetry'&&req.method==='GET'){req.telemetryOnly=true;return await management(req,res,user,body);}
       if(!user)return json(401,{error:'로그인이 필요합니다.'});
+      if(name==='/api/performance'){
+        if(user.role!=='admin'&&!user.canView)return json(403,{error:'조회 권한이 필요합니다.'});
+        if(req.method!=='GET')return json(405,{error:'지원하지 않는 요청입니다.'});
+        return json(200,await performance());
+      }
       if(name==='/api/me'&&req.method==='GET')return json(200,safe(user));
       if(name==='/api/users'){
         if(user.role!=='admin')return json(403,{error:'관리자만 권한을 관리할 수 있습니다.'});

@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 const targets=await fetch('http://127.0.0.1:9224/json').then(r=>r.json());
 const target=targets.find(t=>t.type==='page');assert.ok(target);
@@ -9,7 +9,7 @@ async function evaluate(expression){const r=await send('Runtime.evaluate',{expre
 async function until(expression){for(let i=0;i<60;i++){if(await evaluate(expression))return;await new Promise(r=>setTimeout(r,100));}throw Error('Timed out: '+expression);}
 try{
  await send('Runtime.enable');await send('Page.navigate',{url:'http://127.0.0.1:3018/login.html'});await until('!!document.querySelector("#login")');
- await evaluate(`document.querySelector('[name=username]').value='admin';document.querySelector('[name=password]').value='1234';document.querySelector('#login').requestSubmit();`);await until('document.querySelectorAll("#nav button").length===13');
+ await evaluate(`document.querySelector('[name=username]').value='admin';document.querySelector('[name=password]').value='1234';document.querySelector('#login').requestSubmit();`);await until('document.querySelectorAll("#nav button").length===14');
  await evaluate(`document.querySelector('[data-go=products]').click();document.querySelector('[data-edit=p1]').click();`);
  await evaluate(`document.querySelector('#fields [name=managementNumber]').value='QA-LIFT-001';document.querySelector('#fields [name=capacityKg]').value='1000';document.querySelector('#record-form').requestSubmit();`);await until('!document.querySelector("#editor").open');assert.ok(await evaluate('document.querySelector("#content").innerText.includes("QA-LIFT-001")'));
  await evaluate(`document.querySelector('[data-go=parts]').click();document.querySelector('[data-ledger-action=stock-move][data-record=m1]').click();`);await until('document.querySelector("#ledger-editor").open');

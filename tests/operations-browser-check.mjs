@@ -1,4 +1,4 @@
-﻿import assert from 'node:assert/strict';
+import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 const targets=await fetch('http://127.0.0.1:9224/json').then(r=>r.json());
 const target=targets.find(t=>t.type==='page');assert.ok(target);
@@ -10,7 +10,7 @@ async function until(expression){for(let i=0;i<60;i++){if(await evaluate(express
 try{
  await send('Runtime.enable');await until('!!document.querySelector("#login")');
  await evaluate(`document.querySelector('[name=username]').value='admin';document.querySelector('[name=password]').value='1234';document.querySelector('#login').requestSubmit();`);
- await until('document.querySelectorAll("#nav button").length===13');
+ await until('document.querySelectorAll("#nav button").length===14');
  for(const key of ['field','monitor','preventive','integrations']){await evaluate(`document.querySelector('[data-go=${key}]').click()`);assert.ok(await evaluate('document.querySelector("#content").innerHTML.length>500'));assert.ok(!await evaluate('document.querySelector("#content").innerText.includes("undefined")'));}
  await evaluate(`document.querySelector('[data-go=monitor]').click()`);await until('document.querySelectorAll(".device-card").length===3');assert.ok(await evaluate('document.querySelector("#content").innerText.includes("시연 모드")'));
  await send('Emulation.setDeviceMetricsOverride',{width:1440,height:1100,deviceScaleFactor:1,mobile:false});await mkdir('tests/artifacts',{recursive:true});let shot=await send('Page.captureScreenshot',{format:'png'});await writeFile('tests/artifacts/operations-monitor.png',Buffer.from(shot.data,'base64'));
@@ -26,5 +26,5 @@ try{
  await send('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
  for(const key of ['field','monitor','preventive','integrations']){await evaluate(`document.querySelector('[data-go=${key}]').click()`);assert.ok(await evaluate('document.documentElement.scrollWidth<=window.innerWidth'),'Mobile overflow: '+key);}
  await evaluate(`document.querySelector('[data-go=field]').click()`);shot=await send('Page.captureScreenshot',{format:'png'});await writeFile('tests/artifacts/operations-field-mobile.png',Buffer.from(shot.data,'base64'));
- assert.deepEqual(errors,[]);console.log('Operations browser QA passed: 13 menus, telemetry, import, field report persistence, four mobile layouts.');
+ assert.deepEqual(errors,[]);console.log('Operations browser QA passed: 14 menus, telemetry, import, field report persistence, four mobile layouts.');
 }finally{ws.close();}

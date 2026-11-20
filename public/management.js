@@ -1,4 +1,4 @@
-﻿import {apiFetch,IS_DEMO} from './client.js';
+import {apiFetch,IS_DEMO} from './client.js';
 import {renderLedger,bindLedger} from './ledger.js';
 import {monthlyTotals} from './ledger-model.js';
 import {extraPages,renderOperations,bindOperations,pollTelemetry} from './operations.js';
@@ -53,6 +53,10 @@ function toast(text){$('#toast').textContent=text;$('#toast').classList.add('vis
 async function refresh(){try{data=await api();$('#error').hidden=true;render();}catch(e){$('#error').hidden=false;$('#error').textContent=e.message;}}
 function exportCSV(){const m=modules[page];const cell=v=>'"'+String(v??'').replace(/^[=+@\-\t\r]/,"'$&").replaceAll('"','""')+'"';const rows=data[page].filter(r=>(filter==='all'||(page==='parts'?r.quantity<r.minimum:r.status===filter))&&m.fields.some(([key,,type])=>String(value(page,r,key,type)).toLowerCase().includes(search.toLowerCase())));const text=[m.fields.map(([,l])=>cell(l)).join(','),...rows.map(r=>m.fields.map(([key,,type])=>cell(value(page,r,key,type))).join(','))].join('\r\n');const url=URL.createObjectURL(new Blob(['\uFEFF'+text],{type:'text/csv;charset=utf-8'}));const a=document.createElement('a');a.href=url;a.download=m.short+'.csv';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 document.addEventListener('click',e=>{const nav=e.target.closest('[data-go]');if(nav)go(nav.dataset.go);const editButton=e.target.closest('[data-edit]');if(editButton)edit(editButton.dataset.edit);const del=e.target.closest('[data-delete]');if(del){deleting=del.dataset.delete;$('#confirm').showModal();}if(e.target.id==='add')edit();if(e.target.id==='prev'){offset-=10;render();}if(e.target.id==='next'){offset+=10;render();}if(e.target.id==='csv')exportCSV();});
+$('#performance-nav-toggle').onclick=event=>{
+ const button=event.currentTarget;
+ button.setAttribute('aria-expanded',String(button.getAttribute('aria-expanded')==='false'));
+};
 document.addEventListener('input',e=>{if(e.target.id==='search'){const position=e.target.selectionStart;search=e.target.value;offset=0;render();$('#search').focus();$('#search').setSelectionRange(position,position);}});document.addEventListener('change',e=>{if(e.target.id==='status-filter'){filter=e.target.value;offset=0;render();}});
 $('#record-form').onsubmit=async e=>{e.preventDefault();$('#save').disabled=true;try{data=await api(editing?'PATCH':'POST',{entity:page,id:editing,record:Object.fromEntries(new FormData(e.target))});$('#editor').close();render();toast('저장되었습니다.');}catch(error){$('#form-error').textContent=error.message;}finally{$('#save').disabled=false;}};
 for(const id of ['close-editor','cancel-editor'])$('#'+id).onclick=()=>$('#editor').close();$('#cancel-delete').onclick=()=>$('#confirm').close();$('#accept-delete').onclick=async()=>{try{data=await api('DELETE',{entity:page,id:deleting});$('#confirm').close();offset=0;render();toast('삭제되었습니다.');}catch(error){$('#confirm').close();$('#error').textContent=error.message;$('#error').hidden=false;}};
@@ -62,7 +66,7 @@ try{const response=await apiFetch('./api/me',{cache:'no-store'});if(!response.ok
 
 function operationsContext(){return {data,user,today,go,rerender:render,currentPage:()=>page,toast,error:text=>{$('#error').hidden=false;$('#error').textContent=text;},mutate:async input=>{data=await api('POST',input);render();}};}
 
-function operationsLaunch(){return `<section class="quick-section"><h2>현장 업무 및 관제</h2><div class="ops-launch-grid">${Object.entries(extraPages).map(([key,m])=>`<button data-go="${key}"><span>${m.icon}</span><b>${m.short}</b><small>${key==='monitor'?'시뮬레이션 피드':key==='integrations'?'API 미연결 · 수동 반영':key==='field'?'점검표·사진·조치 기록':key==='cad'?'가상 도면 · 부품표 검토':'기록 기반 점검 알림'}</small><i>→</i></button>`).join('')}</div></section>`;}
+function operationsLaunch(){return `<section class="quick-section"><h2>현장 업무 및 관제</h2><div class="ops-launch-grid">${Object.entries(extraPages).map(([key,m])=>`<button data-go="${key}"><span>${m.icon}</span><b>${m.short}</b><small>${key==='monitor'?'시뮬레이션 피드':key==='integrations'?'API 미연결 · 수동 반영':key==='field'?'점검표·사진·조치 기록':key==='cad'?'가상 도면 · 부품표 검토':key==='performance'?'매출·영업이익률 비교':'기록 기반 점검 알림'}</small><i>→</i></button>`).join('')}</div></section>`;}
 
 function rowLedgerActions(record){if(user.role!=='admin')return '';if(page==='parts')return `<button data-ledger-action="stock-move" data-record="${esc(record.id)}">구매·사용·교체</button>`;if(page==='contracts')return `<button data-ledger-action="bill-month" data-record="${esc(record.id)}">월 청구</button>${data.ledger.renewals.some(r=>r.previousId===record.id)?'':`<button data-ledger-action="renew-contract" data-record="${esc(record.id)}">갱신</button>`}`;return '';}
 
