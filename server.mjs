@@ -4,7 +4,7 @@ import {randomBytes,scryptSync,timingSafeEqual} from 'node:crypto';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import {createManagement} from './management-store.mjs';
-import {createOpenDartPerformance} from './opendart-performance.mjs';
+import {createOpenDartPerformance,usePublishedPerformance} from './opendart-performance.mjs';
 import {createOrders} from './order-store.mjs';
 const dir=path.dirname(fileURLToPath(import.meta.url));
 const root=path.join(dir,'public');
@@ -58,7 +58,8 @@ const server=http.createServer(async(req,res)=>{
       if(name==='/api/performance'){
         if(user.role!=='admin'&&!user.canView)return json(403,{error:'조회 권한이 필요합니다.'});
         if(req.method!=='GET')return json(405,{error:'지원하지 않는 요청입니다.'});
-        return json(200,await performance());
+        const current=await performance();
+        return json(200,await usePublishedPerformance(current,()=>readFile(path.join(root,'performance-public.json'),'utf8')));
       }
       if(name==='/api/me'&&req.method==='GET')return json(200,safe(user));
       if(name==='/api/users'){

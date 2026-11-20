@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { deflateRawSync } from 'node:zlib';
-import { createOpenDartPerformance, readAuditPerformance } from '../opendart-performance.mjs';
+import { createOpenDartPerformance, readAuditPerformance, usePublishedPerformance } from '../opendart-performance.mjs';
 
 function row(code, label, current, previous) {
   return `<TR><TE ACODE="${code}" ADELIM="0">${label}</TE>
@@ -29,6 +29,21 @@ test('audit figures use the labelled reporting year, won amounts and current and
   });
   assert.equal(readAuditPerformance(statement, 2024), null);
   assert.equal(readAuditPerformance(statement.replace('단위 : 원', '단위 : 천원'), 2025), null);
+});
+
+test('local performance uses published audited figures when live numbers are unavailable', async () => {
+  const published = {
+    status: 'ready', updatedAt: '2026-11-20T02:00:00.000Z', years: [2025],
+    records: { samil: { 2025: { receipt: '20260401000001', revenue: 100000000, profit: 0 } } },
+  };
+  const readPublished = async () => JSON.stringify(published);
+  const expected = { ...published, status: 'published-fallback' };
+  assert.deepEqual(await usePublishedPerformance({ status: 'unavailable' }, readPublished), expected);
+  assert.deepEqual(await usePublishedPerformance({ status: 'unconfigured' }, readPublished), expected);
+  const partial = { ...published, status: 'partial' };
+  assert.equal(await usePublishedPerformance(partial, () => assert.fail('Partial data with amounts takes precedence')), partial);
+  const live = { status: 'unavailable' };
+  assert.equal(await usePublishedPerformance(live, async () => '{invalid}'), live);
 });
 
 function documentResponse(xml) {

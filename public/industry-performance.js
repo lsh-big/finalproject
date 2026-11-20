@@ -246,6 +246,7 @@ export async function bindIndustryPerformance(root) {
     unconfigured: '서버의 OpenDART 인증키 설정을 확인해 주세요.',
     unavailable: 'OpenDART 실적 자료를 불러오지 못했습니다.',
     partial: '일부 자료를 갱신하지 못했습니다. 기업별 공시 상태를 확인하세요.',
+    'published-fallback': 'OpenDART에서 현재 수치를 확인할 수 없어, 검증된 공개 감사보고서 자료를 표시합니다.',
     ready: IS_DEMO ? '감사보고서에서 확인해 공개한 실적입니다.' : '감사보고서에서 확인된 최근 결산연도를 표시합니다.'
   };
   const checkedAt = new Date(payload.updatedAt);

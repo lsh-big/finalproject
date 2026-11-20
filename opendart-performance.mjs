@@ -55,6 +55,27 @@ export function readAuditPerformance(document, year) {
   return revenue === null && profit === null ? null : { revenue, previousRevenue, profit };
 }
 
+function hasReportedAmounts(data) {
+  return Array.isArray(data?.years) && data.years.some(year => companies.some(({ id }) => {
+    const record = data.records?.[id]?.[year];
+    return /^\d{14}$/.test(record?.receipt) &&
+      (Number.isSafeInteger(record.revenue) || Number.isSafeInteger(record.profit));
+  }));
+}
+
+export async function usePublishedPerformance(current, readPublished) {
+  if (hasReportedAmounts(current)) return current;
+  try {
+    const published = JSON.parse(await readPublished());
+    if (published.status === 'ready' && Number.isFinite(Date.parse(published.updatedAt)) && hasReportedAmounts(published)) {
+      return {...published, status: 'published-fallback'};
+    }
+  } catch {
+    // Keep the original status when the published figures are unavailable too.
+  }
+  return current;
+}
+
 export function createOpenDartPerformance(privateDir, request = fetch) {
   const cacheDir = path.join(privateDir, 'opendart-cache');
   const cacheFile = path.join(cacheDir, 'performance.json');
